@@ -21,7 +21,7 @@ use std::f32::consts::{FRAC_PI_2, PI};
 use std::thread::sleep_ms;
 use nalgebra::{Rot3, Iso3, Vec3, Persp3, ToHomogeneous};
 
-fn draw_frame(mut target: Frame, vertex_buffer: &VertexBuffer<steve::Vertex>, index_buffer: &NoIndices, shader_prog: &Program, texture: &SrgbTexture2d, t: f32) {
+fn draw_frame(target: &mut Frame, vertex_buffer: &VertexBuffer<steve::Vertex>, index_buffer: &NoIndices, shader_prog: &Program, texture: &SrgbTexture2d, t: f32) {
     target.clear_color_and_depth((0.0, 0.0, 1.0, 1.0), 1.0);
 
     let perspective = {
@@ -65,8 +65,6 @@ fn draw_frame(mut target: Frame, vertex_buffer: &VertexBuffer<steve::Vertex>, in
     };
 
     target.draw(vertex_buffer, index_buffer, shader_prog, &uniforms, &params).unwrap();
-    target.finish().unwrap();
-    sleep_ms(16);
 }
 
 fn mainloop(display: &GlutinFacade) {
@@ -96,8 +94,10 @@ fn mainloop(display: &GlutinFacade) {
 
         let (width, height) = display.get_framebuffer_dimensions();
         println!("Framebuffer dimensions: {} x {}", width, height);
-        let target = display.draw();
-        draw_frame(target, &vertex_buffer, &index_buffer, &shader_prog, &texture, t);
+        let mut target = display.draw();
+        draw_frame(&mut target, &vertex_buffer, &index_buffer, &shader_prog, &texture, t);
+        target.finish().unwrap();
+        sleep_ms(16);
     }
 }
 
