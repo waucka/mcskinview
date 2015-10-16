@@ -16,10 +16,14 @@ use glium::uniforms::MagnifySamplerFilter;
 use glium::draw_parameters::DepthTest;
 use glium::backend::glutin_backend::GlutinFacade;
 use glium::index::PrimitiveType;
-use glium::glutin::Event;
+use glium::glutin::{Event, ElementState, VirtualKeyCode};
 use std::f32::consts::{FRAC_PI_2, PI};
 use std::thread::sleep_ms;
 use nalgebra::{Rot3, Iso3, Vec3, Persp3, ToHomogeneous};
+
+enum NextAction {
+    Quit,
+}
 
 fn draw_frame(target: &mut Frame, vertex_buffer: &VertexBuffer<steve::Vertex>, index_buffer: &NoIndices, shader_prog: &Program, texture: &SrgbTexture2d, t: f32) {
     target.clear_color_and_depth((0.0, 0.0, 1.0, 1.0), 1.0);
@@ -27,7 +31,7 @@ fn draw_frame(target: &mut Frame, vertex_buffer: &VertexBuffer<steve::Vertex>, i
     let perspective = {
         let (width, height) = target.get_dimensions();
         let aspect_ratio = width as f32 / height as f32;
-        println!("Aspect ratio: {} ({} x {})", aspect_ratio, height, width);
+        //println!("Aspect ratio: {} ({} x {})", aspect_ratio, height, width);
 
         let fov: f32 = 3.141592 / 3.0;
         let zfar = 1024.0;
@@ -40,7 +44,7 @@ fn draw_frame(target: &mut Frame, vertex_buffer: &VertexBuffer<steve::Vertex>, i
     let rot1 = Rot3::new(Vec3::new(-FRAC_PI_2, 0.0, 0.0));
     let rot2 = Rot3::new(Vec3::new(0.0, FRAC_PI_2, 0.0));
     let rot3 = Rot3::new(Vec3::new(0.0, t, 0.0));
-    let model = Iso3::new_with_rotmat(Vec3::new(0.0, 0.0, 100.0), rot3 * rot2 * rot1)
+    let model = Iso3::new_with_rotmat(Vec3::new(0.0, 10.0, 100.0), rot3 * rot2 * rot1)
         .to_homogeneous().as_array().clone();
 
     let uniforms = uniform!{
@@ -67,6 +71,23 @@ fn draw_frame(target: &mut Frame, vertex_buffer: &VertexBuffer<steve::Vertex>, i
     target.draw(vertex_buffer, index_buffer, shader_prog, &uniforms, &params).unwrap();
 }
 
+fn handle_input(turn_rate: &mut f32, state: ElementState, key_char: u8, vk_opt: &Option<VirtualKeyCode>) -> Option<NextAction> {
+    let mut next_action = None;
+    let new_turn_rate = match *vk_opt {
+        Some(vk) => match (vk, state) {
+            (VirtualKeyCode::D, ElementState::Pressed)  => PI / 200.0,
+            (VirtualKeyCode::A, ElementState::Pressed)  => -PI / 200.0,
+            (VirtualKeyCode::D, ElementState::Released) => 0.0f32,
+            (VirtualKeyCode::A, ElementState::Released) => 0.0f32,
+            (VirtualKeyCode::Q, ElementState::Released) => { next_action =  Some(NextAction::Quit); 0.0f32},
+            _ => 0.0f32
+        },
+        None => 0.0f32
+    };
+    *turn_rate = new_turn_rate;
+    next_action
+}
+
 fn mainloop(display: &GlutinFacade) {
     use std::io::Cursor;
 
@@ -78,22 +99,25 @@ fn mainloop(display: &GlutinFacade) {
                             image::PNG).unwrap();
     let texture = SrgbTexture2d::new(display, image).unwrap();
 
-    let mut t = -PI;
+    let mut t = 0.0f32;
+    let mut turn_rate = 0.0f32;
 
     loop {
-        t += PI / 200.0;
-        if t > PI {
-            t = -PI;
-        }
+        t += turn_rate;
+
         for ev in display.poll_events() {
             match ev {
                 Event::Closed => return,
+                Event::KeyboardInput(state, key_char, vk_opt) => match handle_input(&mut turn_rate, state, key_char, &vk_opt) {
+                    Some(NextAction::Quit) => return,
+                    None => ()
+                },
                 _ => ()
             }
         }
 
         let (width, height) = display.get_framebuffer_dimensions();
-        println!("Framebuffer dimensions: {} x {}", width, height);
+        //println!("Framebuffer dimensions: {} x {}", width, height);
         let mut target = display.draw();
         draw_frame(&mut target, &vertex_buffer, &index_buffer, &shader_prog, &texture, t);
         target.finish().unwrap();
