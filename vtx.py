@@ -106,6 +106,8 @@ def main():
     parser.add_argument('--rust', dest='lang', action='store_const',
                         const='rust',
                         help='output Rust code')
+    parser.add_argument('--list-pieces', dest='list_pieces', action='store_true',
+                        help='list pieces available in mesh')
     parser.add_argument('-p', '--piece', dest='pieces', action='append')
     parser.add_argument('-o', '--output', dest='output', type=str)
     parser.add_argument(dest='mesh', metavar='MESH', type=str,
@@ -114,6 +116,13 @@ def main():
     args = parser.parse_args()
 
     if args.lang is None:
+        if args.list_pieces:
+            mesh = Collada(args.mesh)
+            for node in mesh.scenes[0].nodes:
+                if type(node.children[0]) is not GeometryNode:
+                    continue
+                print(node.id)
+            sys.exit(0)
         parser.error("Use either --cc or --rust.")
         sys.exit(1)
     vertices = load_mesh(args.mesh, args.pieces)
