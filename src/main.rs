@@ -28,20 +28,25 @@ enum NextAction {
     Quit,
 }
 
-fn handle_input(turn_rate: &mut f32, state: ElementState, vk_opt: &Option<VirtualKeyCode>) -> Option<NextAction> {
+fn handle_input(turn_rate_y: &mut f32, turn_rate_x: &mut f32, state: ElementState, vk_opt: &Option<VirtualKeyCode>) -> Option<NextAction> {
     let mut next_action = None;
-    let new_turn_rate = match *vk_opt {
+    match *vk_opt {
         Some(vk) => match (vk, state) {
-            (VirtualKeyCode::Right, ElementState::Pressed)  => PI / 200.0,
-            (VirtualKeyCode::Left, ElementState::Pressed)  => -PI / 200.0,
-            (VirtualKeyCode::Right, ElementState::Released) => 0.0f32,
-            (VirtualKeyCode::Left, ElementState::Released) => 0.0f32,
-            (VirtualKeyCode::Q, ElementState::Released) => { next_action =  Some(NextAction::Quit); 0.0f32},
-            _ => 0.0f32
+            (VirtualKeyCode::Right, ElementState::Pressed)  => *turn_rate_y = PI / 200.0,
+            (VirtualKeyCode::Left, ElementState::Pressed)  => *turn_rate_y = -PI / 200.0,
+            (VirtualKeyCode::Right, ElementState::Released) => *turn_rate_y = 0.0f32,
+            (VirtualKeyCode::Left, ElementState::Released) => *turn_rate_y = 0.0f32,
+
+            (VirtualKeyCode::Up, ElementState::Pressed)  => *turn_rate_x = PI / 200.0,
+            (VirtualKeyCode::Down, ElementState::Pressed)  => *turn_rate_x = -PI / 200.0,
+            (VirtualKeyCode::Up, ElementState::Released) => *turn_rate_x = 0.0f32,
+            (VirtualKeyCode::Down, ElementState::Released) => *turn_rate_x = 0.0f32,
+
+            (VirtualKeyCode::Q, ElementState::Released) => next_action =  Some(NextAction::Quit),
+            _ => ()
         },
-        None => 0.0f32
+        None => ()
     };
-    *turn_rate = new_turn_rate;
     next_action
 }
 
@@ -118,7 +123,7 @@ pub struct PlayerModel {
 }
 
 impl PlayerModel {
-    fn draw(self: &Self, target: &mut Frame, shader_prog: &Program, t: f32, do_anim: bool) {
+    fn draw(self: &Self, target: &mut Frame, shader_prog: &Program, t: f32, angle_y: f32, angle_x: f32, do_anim: bool) {
         let perspective = {
             let (width, height) = target.get_dimensions();
             let aspect_ratio = width as f32 / height as f32;
@@ -134,10 +139,14 @@ impl PlayerModel {
         let rot1 = Rot3::new(Vec3::new(-FRAC_PI_2, 0.0, 0.0)).to_homogeneous();
         let rot2 = Rot3::new(Vec3::new(0.0, FRAC_PI_2, 0.0)).to_homogeneous();
 
-        let trans_final = Iso3::new(Vec3::new(0.0, 0.0, 100.0), Vec3::zero()).to_homogeneous();
+        let trans_final = Vec3::new(0.0, 0.0, 100.0);
+        let trans_final_mat = Iso3::new(trans_final, Vec3::zero()).to_homogeneous();
+        let inv_trans_final_mat = Iso3::new(-trans_final, Vec3::zero()).to_homogeneous();
 
-        let model = trans_final * rot2 * rot1;
-        let view: Mat4<f32> = Mat4::one();
+        let model = trans_final_mat * rot2 * rot1;
+        let view_rot1 = Rot3::new(Vec3::new(0.0, angle_y, 0.0)).to_homogeneous();
+        let view_rot2 = Rot3::new(Vec3::new(angle_x, 0.0, 0.0)).to_homogeneous();
+        let view = trans_final_mat * view_rot2 * view_rot1 * inv_trans_final_mat;
 
         let mut uniforms = PlayerModelUniforms{
             model: model,
@@ -159,22 +168,22 @@ impl PlayerModel {
         self.torso.draw(target, shader_prog, &uniforms, &params);
 
         let anim_matrix = self.larm.make_anim_matrix(if do_anim { -FRAC_PI_2 * t.sin() } else { 0.0 });
-        let model = trans_final * rot2 * rot1 * anim_matrix;
+        let model = trans_final_mat * rot2 * rot1 * anim_matrix;
         uniforms.model = model;
         self.larm.draw(target, shader_prog, &uniforms, &params);
 
         let anim_matrix = self.rarm.make_anim_matrix(if do_anim { FRAC_PI_2 * t.sin() } else { 0.0 });
-        let model = trans_final * rot2 * rot1 * anim_matrix;
+        let model = trans_final_mat * rot2 * rot1 * anim_matrix;
         uniforms.model = model;
         self.rarm.draw(target, shader_prog, &uniforms, &params);
 
         let anim_matrix = self.lleg.make_anim_matrix(if do_anim { FRAC_PI_2 * t.sin() } else { 0.0 });
-        let model = trans_final * rot2 * rot1 * anim_matrix;
+        let model = trans_final_mat * rot2 * rot1 * anim_matrix;
         uniforms.model = model;
         self.lleg.draw(target, shader_prog, &uniforms, &params);
 
         let anim_matrix = self.rleg.make_anim_matrix(if do_anim { -FRAC_PI_2 * t.sin() } else { 0.0 });
-        let model = trans_final * rot2 * rot1 * anim_matrix;
+        let model = trans_final_mat * rot2 * rot1 * anim_matrix;
         uniforms.model = model;
         self.rleg.draw(target, shader_prog, &uniforms, &params);
     }
@@ -202,16 +211,22 @@ fn mainloop(display: &GlutinFacade) {
     let shader_prog = Program::from_source(display, VERT_PROG, FRAG_PROG, None).unwrap();
 
     let mut t = 0.0f32;
-    let anim_rate = 0.02f32;
-    let mut turn_rate = 0.0f32;
+    let mut angle_y = 0.0f32;
+    let mut angle_x = 0.0f32;
+
+    let anim_rate = 0.04f32;
+    let mut turn_rate_y = 0.0f32;
+    let mut turn_rate_x = 0.0f32;
 
     loop {
         t += anim_rate;
+        angle_y += turn_rate_y;
+        angle_x += turn_rate_x;
 
         for ev in display.poll_events() {
             match ev {
                 Event::Closed => return,
-                Event::KeyboardInput(state, _, vk_opt) => match handle_input(&mut turn_rate, state, &vk_opt) {
+                Event::KeyboardInput(state, _, vk_opt) => match handle_input(&mut turn_rate_y, &mut turn_rate_x, state, &vk_opt) {
                     Some(NextAction::Quit) => return,
                     None => ()
                 },
@@ -224,7 +239,7 @@ fn mainloop(display: &GlutinFacade) {
         let mut target = display.draw();
         target.clear_color_and_depth((0.0, 0.0, 1.0, 1.0), 1.0);
 
-        player.draw(&mut target, &shader_prog, t, true);
+        player.draw(&mut target, &shader_prog, t, angle_y, angle_x, true);
 
         target.finish().unwrap();
         sleep_ms(16);
