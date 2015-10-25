@@ -2,6 +2,7 @@
 extern crate glium;
 extern crate image;
 extern crate nalgebra;
+extern crate num;
 
 mod steve;
 
@@ -12,7 +13,7 @@ const FRAG_PROG: &'static str = include_str!("frag.glsl");
 use glium::{Surface, VertexBuffer, Frame, Program};
 use glium::index::NoIndices;
 use glium::texture::srgb_texture2d::SrgbTexture2d;
-use glium::uniforms::MagnifySamplerFilter;
+use glium::uniforms::{MagnifySamplerFilter, Uniforms, AsUniformValue};
 use glium::draw_parameters::DepthTest;
 use glium::backend::glutin_backend::GlutinFacade;
 use glium::index::PrimitiveType;
@@ -20,54 +21,11 @@ use glium::vertex::BufferCreationError;
 use glium::glutin::{Event, ElementState, VirtualKeyCode};
 use std::f32::consts::{FRAC_PI_2, PI};
 use std::thread::sleep_ms;
-use nalgebra::{Rot3, Iso3, Vec3, Persp3, ToHomogeneous};
+use nalgebra::{Rot3, Iso3, Vec3, Persp3, ToHomogeneous, Mat4};
+use num::traits::{Zero, One};
 
 enum NextAction {
     Quit,
-}
-
-fn draw_frame(target: &mut Frame, vertex_buffer: &VertexBuffer<steve::Vertex>, index_buffer: &NoIndices, shader_prog: &Program, texture: &SrgbTexture2d, t: f32) {
-    let perspective = {
-        let (width, height) = target.get_dimensions();
-        let aspect_ratio = width as f32 / height as f32;
-        //println!("Aspect ratio: {} ({} x {})", aspect_ratio, height, width);
-
-        let fov: f32 = 3.141592 / 3.0;
-        let zfar = 1024.0;
-        let znear = 0.1;
-
-        let pmat = Persp3::new(aspect_ratio, fov, znear, zfar).to_mat();
-        pmat.as_array().clone()
-    };
-
-    let rot1 = Rot3::new(Vec3::new(-FRAC_PI_2, 0.0, 0.0));
-    let rot2 = Rot3::new(Vec3::new(0.0, FRAC_PI_2, 0.0));
-    let rot3 = Rot3::new(Vec3::new(0.0, t, 0.0));
-    let model = Iso3::new_with_rotmat(Vec3::new(0.0, 10.0, 100.0), rot3 * rot2 * rot1)
-        .to_homogeneous().as_array().clone();
-
-    let uniforms = uniform!{
-        model: model,
-        view:  [
-            [1.0, 0.0, 0.0, 0.0],
-            [0.0, 1.0, 0.0, 0.0],
-            [0.0, 0.0, 1.0, 0.0],
-            [0.0, 0.0, 0.0, 1.0f32],
-            ],
-        projection:  perspective,
-        tex: texture.sampled().magnify_filter(MagnifySamplerFilter::Nearest),
-    };
-
-    let params = glium::DrawParameters {
-        depth: glium::Depth {
-            test: DepthTest::IfLess,
-            write: true,
-            .. Default::default()
-        },
-        .. Default::default()
-    };
-
-    target.draw(vertex_buffer, index_buffer, shader_prog, &uniforms, &params).unwrap();
 }
 
 fn handle_input(turn_rate: &mut f32, state: ElementState, vk_opt: &Option<VirtualKeyCode>) -> Option<NextAction> {
@@ -90,41 +48,165 @@ fn handle_input(turn_rate: &mut f32, state: ElementState, vk_opt: &Option<Virtua
 pub struct ModelPiece {
     vbo: VertexBuffer<steve::Vertex>,
     prim: PrimitiveType,
+    bone: Option<Vec3<f32>>,
 }
 
 impl ModelPiece {
-    fn new(display: &GlutinFacade, verts: &[steve::Vertex], prim: PrimitiveType) -> Result<Self, BufferCreationError> {
+    fn new(display: &GlutinFacade, verts: &[steve::Vertex], prim: PrimitiveType, bone: Option<Vec3<f32>>) -> Result<Self, BufferCreationError> {
         let vertex_buffer = match VertexBuffer::new(display, verts) {
             Ok(vbo) => vbo,
             Err(e) => return Err(e),
         };
-        Ok(ModelPiece{vbo: vertex_buffer, prim: prim})
+        Ok(ModelPiece{vbo: vertex_buffer, prim: prim, bone: bone})
+    }
+
+    fn make_anim_matrix(self: &Self, anim_angle: f32) -> Mat4<f32> {
+        match self.bone {
+            Some(bone) => {
+                let trans1 = Iso3::new(-bone, Vec3::zero()).to_homogeneous();
+                let rot3 = Rot3::new(Vec3::new(0.0, anim_angle, 0.0)).to_homogeneous();
+                let trans2 = Iso3::new(bone, Vec3::zero()).to_homogeneous();
+                trans2 * rot3 * trans1},
+            None => Mat4::<f32>::one()
+        }
+    }
+
+    fn draw<U>(self: &Self, target: &mut Frame, shader_prog: &Program, uniforms: &U, params: &glium::draw_parameters::DrawParameters) where U: Uniforms {
+        let ibo = NoIndices(self.prim);
+        target.draw(&self.vbo, ibo, shader_prog, uniforms, params).unwrap();
+    }
+}
+
+macro_rules! implement_uniforms {
+    ($struct_name:ident, $($field_name:ident),+) => (
+        impl<'b> glium::uniforms::Uniforms for $struct_name<'b> {
+            #[inline]
+            fn visit_values<'a, F: FnMut(&str, glium::uniforms::UniformValue<'a>)>(&'a self, mut output: F) {
+                $(
+                    output(stringify!($field_name), self.$field_name.as_uniform_value());
+                )+
+            }
+        }
+    );
+
+    ($struct_name:ident, $($field_name:ident),+,) => (
+        implement_uniforms!($struct_name, $($field_name),+);
+    );
+}
+
+#[derive(Copy, Clone)]
+struct PlayerModelUniforms<'a> {
+    model: Mat4<f32>,
+    view:  Mat4<f32>,
+    projection:  Mat4<f32>,
+    tex: &'a glium::uniforms::Sampler<'a, SrgbTexture2d>,
+}
+
+implement_uniforms!(PlayerModelUniforms, model, view, projection, tex);
+
+pub struct PlayerModel {
+    head: ModelPiece,
+    torso: ModelPiece,
+
+    larm: ModelPiece,
+    rarm: ModelPiece,
+
+    lleg: ModelPiece,
+    rleg: ModelPiece,
+
+    texture: SrgbTexture2d,
+}
+
+impl PlayerModel {
+    fn draw(self: &Self, target: &mut Frame, shader_prog: &Program, t: f32, do_anim: bool) {
+        let perspective = {
+            let (width, height) = target.get_dimensions();
+            let aspect_ratio = width as f32 / height as f32;
+            //println!("Aspect ratio: {} ({} x {})", aspect_ratio, height, width);
+
+            let fov: f32 = 3.141592 / 3.0;
+            let zfar = 1024.0;
+            let znear = 0.1;
+
+            Persp3::new(aspect_ratio, fov, znear, zfar).to_mat()
+        };
+
+        let rot1 = Rot3::new(Vec3::new(-FRAC_PI_2, 0.0, 0.0)).to_homogeneous();
+        let rot2 = Rot3::new(Vec3::new(0.0, FRAC_PI_2, 0.0)).to_homogeneous();
+
+        let trans_final = Iso3::new(Vec3::new(0.0, 0.0, 100.0), Vec3::zero()).to_homogeneous();
+
+        let model = trans_final * rot2 * rot1;
+        let view: Mat4<f32> = Mat4::one();
+
+        let mut uniforms = PlayerModelUniforms{
+            model: model,
+            view: view,
+            projection: perspective,
+            tex: &self.texture.sampled().magnify_filter(MagnifySamplerFilter::Nearest),
+        };
+
+        let params = glium::DrawParameters {
+            depth: glium::Depth {
+                test: DepthTest::IfLess,
+                write: true,
+                .. Default::default()
+            },
+            .. Default::default()
+        };
+
+        self.head.draw(target, shader_prog, &uniforms, &params);
+        self.torso.draw(target, shader_prog, &uniforms, &params);
+
+        let anim_matrix = self.larm.make_anim_matrix(if do_anim { -FRAC_PI_2 * t.sin() } else { 0.0 });
+        let model = trans_final * rot2 * rot1 * anim_matrix;
+        uniforms.model = model;
+        self.larm.draw(target, shader_prog, &uniforms, &params);
+
+        let anim_matrix = self.rarm.make_anim_matrix(if do_anim { FRAC_PI_2 * t.sin() } else { 0.0 });
+        let model = trans_final * rot2 * rot1 * anim_matrix;
+        uniforms.model = model;
+        self.rarm.draw(target, shader_prog, &uniforms, &params);
+
+        let anim_matrix = self.lleg.make_anim_matrix(if do_anim { FRAC_PI_2 * t.sin() } else { 0.0 });
+        let model = trans_final * rot2 * rot1 * anim_matrix;
+        uniforms.model = model;
+        self.lleg.draw(target, shader_prog, &uniforms, &params);
+
+        let anim_matrix = self.rleg.make_anim_matrix(if do_anim { -FRAC_PI_2 * t.sin() } else { 0.0 });
+        let model = trans_final * rot2 * rot1 * anim_matrix;
+        uniforms.model = model;
+        self.rleg.draw(target, shader_prog, &uniforms, &params);
     }
 }
 
 fn mainloop(display: &GlutinFacade) {
     use std::io::Cursor;
 
-    let head = ModelPiece::new(display, &steve::HEAD, PrimitiveType::TrianglesList).unwrap();
-    let torso = ModelPiece::new(display, &steve::TORSO, PrimitiveType::TrianglesList).unwrap();
+    let image = image::load(Cursor::new(&include_bytes!("steve.png")[..]),
+                            image::PNG).unwrap();
 
-    let larm = ModelPiece::new(display, &steve::LARM, PrimitiveType::TrianglesList).unwrap();
-    let rarm = ModelPiece::new(display, &steve::RARM, PrimitiveType::TrianglesList).unwrap();
+    let player = PlayerModel{
+        head: ModelPiece::new(display, &steve::HEAD, PrimitiveType::TrianglesList, None).unwrap(),
+        torso: ModelPiece::new(display, &steve::TORSO, PrimitiveType::TrianglesList, None).unwrap(),
 
-    let lleg = ModelPiece::new(display, &steve::LLEG, PrimitiveType::TrianglesList).unwrap();
-    let rleg = ModelPiece::new(display, &steve::RLEG, PrimitiveType::TrianglesList).unwrap();
+        larm: ModelPiece::new(display, &steve::LARM, PrimitiveType::TrianglesList, Some(*steve::LARM_BONE)).unwrap(),
+        rarm: ModelPiece::new(display, &steve::RARM, PrimitiveType::TrianglesList, Some(*steve::RARM_BONE)).unwrap(),
+
+        lleg: ModelPiece::new(display, &steve::LLEG, PrimitiveType::TrianglesList, Some(*steve::LLEG_BONE)).unwrap(),
+        rleg: ModelPiece::new(display, &steve::RLEG, PrimitiveType::TrianglesList, Some(*steve::RLEG_BONE)).unwrap(),
+
+        texture: SrgbTexture2d::new(display, image).unwrap(),
+    };
 
     let shader_prog = Program::from_source(display, VERT_PROG, FRAG_PROG, None).unwrap();
 
-    let image = image::load(Cursor::new(&include_bytes!("steve.png")[..]),
-                            image::PNG).unwrap();
-    let texture = SrgbTexture2d::new(display, image).unwrap();
-
     let mut t = 0.0f32;
+    let anim_rate = 0.02f32;
     let mut turn_rate = 0.0f32;
 
     loop {
-        t += turn_rate;
+        t += anim_rate;
 
         for ev in display.poll_events() {
             match ev {
@@ -140,17 +222,9 @@ fn mainloop(display: &GlutinFacade) {
         //let (width, height) = display.get_framebuffer_dimensions();
         //println!("Framebuffer dimensions: {} x {}", width, height);
         let mut target = display.draw();
-        let indices = NoIndices(head.prim);
         target.clear_color_and_depth((0.0, 0.0, 1.0, 1.0), 1.0);
 
-        draw_frame(&mut target, &head.vbo, &indices, &shader_prog, &texture, t);
-        draw_frame(&mut target, &torso.vbo, &indices, &shader_prog, &texture, t);
-
-        draw_frame(&mut target, &larm.vbo, &indices, &shader_prog, &texture, t);
-        draw_frame(&mut target, &rarm.vbo, &indices, &shader_prog, &texture, t);
-
-        draw_frame(&mut target, &lleg.vbo, &indices, &shader_prog, &texture, t);
-        draw_frame(&mut target, &rleg.vbo, &indices, &shader_prog, &texture, t);
+        player.draw(&mut target, &shader_prog, t, true);
 
         target.finish().unwrap();
         sleep_ms(16);

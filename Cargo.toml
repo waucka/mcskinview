@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["Alexander Wauck <alex@impulse101.org>"]
 
 [dependencies]
-glium = "*"
-image = "*"
+glium = { version = "*", features = ["glutin", "image", "nalgebra", "cgmath"] }
+image = "0.3.15"
 nalgebra = "*"
+num = "0.1.27"

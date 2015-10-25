@@ -27,6 +27,7 @@ class Vertex(object):
 
 def load_mesh(mesh_filename, pieces):
     vertices = {}
+    joints = {}
 
     mesh = Collada(mesh_filename)
     nodes_dict = {}
@@ -52,9 +53,15 @@ def load_mesh(mesh_filename, pieces):
                                                  tri.texcoords[0][i][0], tri.texcoords[0][i][1],
                                                  tri.normals[i][0], tri.normals[i][1], tri.normals[i][2]))
             vertices[nodes_dict[geom.original.id]] = piece_vertices
-    return vertices
+    for node in mesh.scenes[0].nodes:
+        if node.id.endswith('_bone'):
+            mat = node.matrix
+            joints[node.id] = [mat[0][3],
+                               mat[1][3],
+                               mat[2][3]]
+    return vertices, joints
 
-def generate_c(ostream, all_vertices):
+def generate_c(ostream, all_vertices, joints):
     ostream.write('''typedef struct {
   GLfloat x;
   GLfloat y;
@@ -66,7 +73,13 @@ def generate_c(ostream, all_vertices):
   GLfloat nx;
   GLfloat ny;
   GLfloat nz;
-};
+} vertex_data_t;
+
+typedef struct {
+  GLfloat x;
+  GLfloat y;
+  GLfloat z;
+} joint_position_t;
 ''')
     for piece_name, vertices in all_vertices.items():
         ostream.write('\n')
@@ -77,8 +90,16 @@ def generate_c(ostream, all_vertices):
         ostream.write(',\n'.join(vtx_strs))
         ostream.write('\n};\n')
 
-def generate_rust(ostream, all_vertices):
-    ostream.write('''#[derive(Copy, Clone)]
+    for joint_name, joint in joints.items():
+        ostream.write('\n')
+        ostream.write("joint_position_t {joint_name} = {{ {x:.4f}f, {y:.4f}f, {z:.4f}f }};\n".format(joint_name=joint_name,
+                                                                                                     x=joint[0],
+                                                                                                     y=joint[1],
+                                                                                                     z=joint[2]))
+
+def generate_rust(ostream, all_vertices, joints):
+    ostream.write('''extern crate nalgebra;
+#[derive(Copy, Clone)]
 pub struct Vertex {
     position: [f32; 3],
     texcoord: [f32; 2],
@@ -95,6 +116,13 @@ implement_vertex!(Vertex, position, texcoord, normal);
             ostream.write("    Vertex {{ position: [{x:.4f}, {y:.4f}, {z:.4f}],  texcoord: [{s:.4f}, {t:.4f}],  normal: [{nx:.4f}, {ny:.4f}, {nz:.4f}] }},\n".format(**vtx.__dict__))
         ostream.write('    ];\n')
 
+    for joint_name, joint in joints.items():
+        ostream.write('\n')
+        ostream.write("pub const {joint_name}: &'static nalgebra::Vec3<f32> = &nalgebra::Vec3{{ x: {x:.4f}, y: {y:.4f}, z: {z:.4f} }};\n".format(joint_name=joint_name.upper(),
+                                                                                                                                                 x=joint[0],
+                                                                                                                                                 y=joint[1],
+                                                                                                                                                 z=joint[2]))
+
 dispatch = {
     'c': generate_c,
     'rust': generate_rust,
@@ -102,6 +130,7 @@ dispatch = {
 
 def list_pieces(mesh_filename):
     mesh = Collada(mesh_filename)
+    import ipdb; ipdb.set_trace()
     for node in mesh.scenes[0].nodes:
         if type(node.children[0]) is not GeometryNode:
             continue
@@ -131,13 +160,13 @@ def main():
             sys.exit(0)
         parser.error("Use either --cc or --rust.")
         sys.exit(1)
-    vertices = load_mesh(args.mesh, args.pieces)
+    vertices, joints = load_mesh(args.mesh, args.pieces)
 
     if args.output is not None:
         with open(args.output, 'w') as f:
-            dispatch[args.lang](f, vertices)
+            dispatch[args.lang](f, vertices, joints)
     else:
-        dispatch[args.lang](sys.stdout, vertices)
+        dispatch[args.lang](sys.stdout, vertices, joints)
 
 if __name__ == '__main__':
     main()
