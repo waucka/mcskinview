@@ -15,7 +15,7 @@ use glium::texture::srgb_texture2d::SrgbTexture2d;
 use glium::uniforms::MagnifySamplerFilter;
 use glium::draw_parameters::DepthTest;
 use glium::backend::glutin_backend::GlutinFacade;
-use glium::index::{PrimitiveType, IndicesSource};
+use glium::index::PrimitiveType;
 use glium::vertex::BufferCreationError;
 use glium::glutin::{Event, ElementState, VirtualKeyCode};
 use std::f32::consts::{FRAC_PI_2, PI};
@@ -70,7 +70,7 @@ fn draw_frame(target: &mut Frame, vertex_buffer: &VertexBuffer<steve::Vertex>, i
     target.draw(vertex_buffer, index_buffer, shader_prog, &uniforms, &params).unwrap();
 }
 
-fn handle_input(turn_rate: &mut f32, state: ElementState, key_char: u8, vk_opt: &Option<VirtualKeyCode>) -> Option<NextAction> {
+fn handle_input(turn_rate: &mut f32, state: ElementState, vk_opt: &Option<VirtualKeyCode>) -> Option<NextAction> {
     let mut next_action = None;
     let new_turn_rate = match *vk_opt {
         Some(vk) => match (vk, state) {
@@ -129,7 +129,7 @@ fn mainloop(display: &GlutinFacade) {
         for ev in display.poll_events() {
             match ev {
                 Event::Closed => return,
-                Event::KeyboardInput(state, key_char, vk_opt) => match handle_input(&mut turn_rate, state, key_char, &vk_opt) {
+                Event::KeyboardInput(state, _, vk_opt) => match handle_input(&mut turn_rate, state, &vk_opt) {
                     Some(NextAction::Quit) => return,
                     None => ()
                 },
