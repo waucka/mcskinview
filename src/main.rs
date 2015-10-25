@@ -74,10 +74,10 @@ fn handle_input(turn_rate: &mut f32, state: ElementState, key_char: u8, vk_opt: 
     let mut next_action = None;
     let new_turn_rate = match *vk_opt {
         Some(vk) => match (vk, state) {
-            (VirtualKeyCode::D, ElementState::Pressed)  => PI / 200.0,
-            (VirtualKeyCode::A, ElementState::Pressed)  => -PI / 200.0,
-            (VirtualKeyCode::D, ElementState::Released) => 0.0f32,
-            (VirtualKeyCode::A, ElementState::Released) => 0.0f32,
+            (VirtualKeyCode::Right, ElementState::Pressed)  => PI / 200.0,
+            (VirtualKeyCode::Left, ElementState::Pressed)  => -PI / 200.0,
+            (VirtualKeyCode::Right, ElementState::Released) => 0.0f32,
+            (VirtualKeyCode::Left, ElementState::Released) => 0.0f32,
             (VirtualKeyCode::Q, ElementState::Released) => { next_action =  Some(NextAction::Quit); 0.0f32},
             _ => 0.0f32
         },
