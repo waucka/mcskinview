@@ -15,7 +15,8 @@ use glium::texture::srgb_texture2d::SrgbTexture2d;
 use glium::uniforms::MagnifySamplerFilter;
 use glium::draw_parameters::DepthTest;
 use glium::backend::glutin_backend::GlutinFacade;
-use glium::index::PrimitiveType;
+use glium::index::{PrimitiveType, IndicesSource};
+use glium::vertex::BufferCreationError;
 use glium::glutin::{Event, ElementState, VirtualKeyCode};
 use std::f32::consts::{FRAC_PI_2, PI};
 use std::thread::sleep_ms;
@@ -26,8 +27,6 @@ enum NextAction {
 }
 
 fn draw_frame(target: &mut Frame, vertex_buffer: &VertexBuffer<steve::Vertex>, index_buffer: &NoIndices, shader_prog: &Program, texture: &SrgbTexture2d, t: f32) {
-    target.clear_color_and_depth((0.0, 0.0, 1.0, 1.0), 1.0);
-
     let perspective = {
         let (width, height) = target.get_dimensions();
         let aspect_ratio = width as f32 / height as f32;
@@ -88,11 +87,33 @@ fn handle_input(turn_rate: &mut f32, state: ElementState, key_char: u8, vk_opt: 
     next_action
 }
 
+pub struct ModelPiece {
+    vbo: VertexBuffer<steve::Vertex>,
+    prim: PrimitiveType,
+}
+
+impl ModelPiece {
+    fn new(display: &GlutinFacade, verts: &[steve::Vertex], prim: PrimitiveType) -> Result<Self, BufferCreationError> {
+        let vertex_buffer = match VertexBuffer::new(display, verts) {
+            Ok(vbo) => vbo,
+            Err(e) => return Err(e),
+        };
+        Ok(ModelPiece{vbo: vertex_buffer, prim: prim})
+    }
+}
+
 fn mainloop(display: &GlutinFacade) {
     use std::io::Cursor;
 
-    let vertex_buffer = VertexBuffer::new(display, &steve::VERTICES).unwrap();
-    let index_buffer = NoIndices(PrimitiveType::TrianglesList);
+    let head = ModelPiece::new(display, &steve::HEAD, PrimitiveType::TrianglesList).unwrap();
+    let torso = ModelPiece::new(display, &steve::TORSO, PrimitiveType::TrianglesList).unwrap();
+
+    let larm = ModelPiece::new(display, &steve::LARM, PrimitiveType::TrianglesList).unwrap();
+    let rarm = ModelPiece::new(display, &steve::RARM, PrimitiveType::TrianglesList).unwrap();
+
+    let lleg = ModelPiece::new(display, &steve::LLEG, PrimitiveType::TrianglesList).unwrap();
+    let rleg = ModelPiece::new(display, &steve::RLEG, PrimitiveType::TrianglesList).unwrap();
+
     let shader_prog = Program::from_source(display, VERT_PROG, FRAG_PROG, None).unwrap();
 
     let image = image::load(Cursor::new(&include_bytes!("steve.png")[..]),
@@ -116,10 +137,21 @@ fn mainloop(display: &GlutinFacade) {
             }
         }
 
-        let (width, height) = display.get_framebuffer_dimensions();
+        //let (width, height) = display.get_framebuffer_dimensions();
         //println!("Framebuffer dimensions: {} x {}", width, height);
         let mut target = display.draw();
-        draw_frame(&mut target, &vertex_buffer, &index_buffer, &shader_prog, &texture, t);
+        let indices = NoIndices(head.prim);
+        target.clear_color_and_depth((0.0, 0.0, 1.0, 1.0), 1.0);
+
+        draw_frame(&mut target, &head.vbo, &indices, &shader_prog, &texture, t);
+        draw_frame(&mut target, &torso.vbo, &indices, &shader_prog, &texture, t);
+
+        draw_frame(&mut target, &larm.vbo, &indices, &shader_prog, &texture, t);
+        draw_frame(&mut target, &rarm.vbo, &indices, &shader_prog, &texture, t);
+
+        draw_frame(&mut target, &lleg.vbo, &indices, &shader_prog, &texture, t);
+        draw_frame(&mut target, &rleg.vbo, &indices, &shader_prog, &texture, t);
+
         target.finish().unwrap();
         sleep_ms(16);
     }

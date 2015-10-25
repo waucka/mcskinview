@@ -26,7 +26,7 @@ class Vertex(object):
         self.nz = clamp(nz)
 
 def load_mesh(mesh_filename, pieces):
-    vertices = []
+    vertices = {}
 
     mesh = Collada(mesh_filename)
     nodes_dict = {}
@@ -34,26 +34,27 @@ def load_mesh(mesh_filename, pieces):
     for node in mesh.scenes[0].nodes:
         if type(node.children[0]) is not GeometryNode:
             continue
+        #import ipdb; ipdb.set_trace()
+        if pieces is None or node.id in pieces:
+            nodes_dict[node.children[0].geometry.id] = node.id
 
-    if pieces is not None:
-        target_nodes = set([nodes_dict[x] for x in pieces])
-    else:
-        target_nodes = None
     for geom in mesh.scenes[0].objects('geometry'):
-        if target_nodes is None or geom.original.id in target_nodes:
+        if geom.original.id in nodes_dict:
             #print(geom.original.id)
             prims = list(geom.primitives())
             assert(len(prims) == 1)
             assert(len(prims[0].vertex_index) == len(prims[0].normal_index))
             assert(len(prims[0].normal_index) == len(prims[0].texcoord_indexset[0]))
+            piece_vertices = []
             for tri in prims[0].triangleset():
                 for i in range(0, 3):
-                    vertices.append(Vertex(tri.vertices[i][0], tri.vertices[i][1], tri.vertices[i][2],
-                                           tri.texcoords[0][i][0], tri.texcoords[0][i][1],
-                                           tri.normals[i][0], tri.normals[i][1], tri.normals[i][2]))
+                    piece_vertices.append(Vertex(tri.vertices[i][0], tri.vertices[i][1], tri.vertices[i][2],
+                                                 tri.texcoords[0][i][0], tri.texcoords[0][i][1],
+                                                 tri.normals[i][0], tri.normals[i][1], tri.normals[i][2]))
+            vertices[nodes_dict[geom.original.id]] = piece_vertices
     return vertices
 
-def generate_c(ostream, vertices):
+def generate_c(ostream, all_vertices):
     ostream.write('''typedef struct {
   GLfloat x;
   GLfloat y;
@@ -67,15 +68,16 @@ def generate_c(ostream, vertices):
   GLfloat nz;
 };
 ''')
-    ostream.write('\n')
-    ostream.write('vertex_data_t[] vertices = {\n')
-    vtx_strs = []
-    for vtx in vertices:
-        vtx_strs.append("  {{ {x:.4f}f, {y:.4f}f, {z:.4f}f,  {s:.4f}f, {t:.4f}f,  {nx:.4f}f, {ny:.4f}f, {nz:.4f}f }}".format(**vtx.__dict__))
-    ostream.write(',\n'.join(vtx_strs))
-    ostream.write('\n};\n')
+    for piece_name, vertices in all_vertices.items():
+        ostream.write('\n')
+        ostream.write("vertex_data_t[] {0} = {\n".format(piece_name))
+        vtx_strs = []
+        for vtx in vertices:
+            vtx_strs.append("  {{ {x:.4f}f, {y:.4f}f, {z:.4f}f,  {s:.4f}f, {t:.4f}f,  {nx:.4f}f, {ny:.4f}f, {nz:.4f}f }}".format(**vtx.__dict__))
+        ostream.write(',\n'.join(vtx_strs))
+        ostream.write('\n};\n')
 
-def generate_rust(ostream, vertices):
+def generate_rust(ostream, all_vertices):
     ostream.write('''#[derive(Copy, Clone)]
 pub struct Vertex {
     position: [f32; 3],
@@ -86,19 +88,27 @@ pub struct Vertex {
 implement_vertex!(Vertex, position, texcoord, normal);
 ''');
 
-    ostream.write('\n')
-    ostream.write("pub const VERTICES: &'static [Vertex] = &[\n")
-    for vtx in vertices:
-        ostream.write("    Vertex {{ position: [{x:.4f}, {y:.4f}, {z:.4f}],  texcoord: [{s:.4f}, {t:.4f}],  normal: [{nx:.4f}, {ny:.4f}, {nz:.4f}] }},\n".format(**vtx.__dict__))
-    ostream.write('    ];\n')
+    for piece_name, vertices in all_vertices.items():
+        ostream.write('\n')
+        ostream.write("pub const {0}: &'static [Vertex] = &[\n".format(piece_name.upper()))
+        for vtx in vertices:
+            ostream.write("    Vertex {{ position: [{x:.4f}, {y:.4f}, {z:.4f}],  texcoord: [{s:.4f}, {t:.4f}],  normal: [{nx:.4f}, {ny:.4f}, {nz:.4f}] }},\n".format(**vtx.__dict__))
+        ostream.write('    ];\n')
 
 dispatch = {
     'c': generate_c,
     'rust': generate_rust,
 }
 
-def main():
+def list_pieces(mesh_filename):
+    mesh = Collada(mesh_filename)
+    for node in mesh.scenes[0].nodes:
+        if type(node.children[0]) is not GeometryNode:
+            continue
+        print(node.id)
 
+
+def main():
     parser = argparse.ArgumentParser(description='Process some integers.')
     parser.add_argument('--cc', dest='lang', action='store_const',
                         const='c',
@@ -117,11 +127,7 @@ def main():
 
     if args.lang is None:
         if args.list_pieces:
-            mesh = Collada(args.mesh)
-            for node in mesh.scenes[0].nodes:
-                if type(node.children[0]) is not GeometryNode:
-                    continue
-                print(node.id)
+            list_pieces(args.mesh)
             sys.exit(0)
         parser.error("Use either --cc or --rust.")
         sys.exit(1)
