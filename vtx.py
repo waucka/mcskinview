@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 
 import sys
-import numpy as np
 import decimal
+import argparse
+
 from collada import Collada
 from collada.scene import GeometryNode
 
@@ -24,50 +25,36 @@ class Vertex(object):
         self.ny = clamp(ny)
         self.nz = clamp(nz)
 
-vertices = []
+def load_mesh(mesh_filename, pieces):
+    vertices = []
 
-mesh = Collada('steve.dae')
-nodes_dict = {}
+    mesh = Collada(mesh_filename)
+    nodes_dict = {}
 
-for node in mesh.scenes[0].nodes:
-    if type(node.children[0]) is not GeometryNode:
-        continue
-    if len(sys.argv) < 3:
-        print(node.id)
-    assert(len(node.children) == 1)
-    nodes_dict[node.id] = node.children[0].geometry.id
+    for node in mesh.scenes[0].nodes:
+        if type(node.children[0]) is not GeometryNode:
+            continue
 
-if len(sys.argv) < 3:
-    sys.exit(0)
+    if pieces is not None:
+        target_nodes = set([nodes_dict[x] for x in pieces])
+    else:
+        target_nodes = None
+    for geom in mesh.scenes[0].objects('geometry'):
+        if target_nodes is None or geom.original.id in target_nodes:
+            #print(geom.original.id)
+            prims = list(geom.primitives())
+            assert(len(prims) == 1)
+            assert(len(prims[0].vertex_index) == len(prims[0].normal_index))
+            assert(len(prims[0].normal_index) == len(prims[0].texcoord_indexset[0]))
+            for tri in prims[0].triangleset():
+                for i in range(0, 3):
+                    vertices.append(Vertex(tri.vertices[i][0], tri.vertices[i][1], tri.vertices[i][2],
+                                           tri.texcoords[0][i][0], tri.texcoords[0][i][1],
+                                           tri.normals[i][0], tri.normals[i][1], tri.normals[i][2]))
+    return vertices
 
-target_nodes = set([nodes_dict[x] for x in sys.argv[2:]])
-for geom in mesh.scenes[0].objects('geometry'):
-    if geom.original.id in target_nodes:
-        #print(geom.original.id)
-        prims = list(geom.primitives())
-        assert(len(prims) == 1)
-        assert(len(prims[0].vertex_index) == len(prims[0].normal_index))
-        assert(len(prims[0].normal_index) == len(prims[0].texcoord_indexset[0]))
-        for tri in prims[0].triangleset():
-            for i in range(0, 3):
-                vertices.append(Vertex(tri.vertices[i][0], tri.vertices[i][1], tri.vertices[i][2],
-                                       tri.texcoords[0][i][0], tri.texcoords[0][i][1],
-                                       tri.normals[i][0], tri.normals[i][1], tri.normals[i][2]))
-
-        # for i in range(0, len(prims[0].vertex_index)):
-        #     print("{0} {1} {2}".format(prims[0].vertex_index[i],
-        #                                prims[0].texcoord_indexset[0][i],
-        #                                prims[0].normal_index[i]))
-        #     vtx = prims[0].vertex[prims[0].vertex_index[i]]
-        #     tc = prims[0].texcoordset[0][prims[0].texcoord_indexset[0][i]]
-        #     nm = prims[0].normal[prims[0].normal_index[i]]
-
-        #     vertices.append(Vertex(vtx[0], vtx[1], vtx[2],
-        #                            tc[0], tc[1],
-        #                            nm[0], nm[1], nm[2]))
-
-def generate_c():
-    print('''typedef struct {
+def generate_c(ostream, vertices):
+    ostream.write('''typedef struct {
   GLfloat x;
   GLfloat y;
   GLfloat z;
@@ -78,17 +65,18 @@ def generate_c():
   GLfloat nx;
   GLfloat ny;
   GLfloat nz;
-};''')
-    print()
-    print('vertex_data_t[] vertices = {')
+};
+''')
+    ostream.write('\n')
+    ostream.write('vertex_data_t[] vertices = {\n')
     vtx_strs = []
     for vtx in vertices:
         vtx_strs.append("  {{ {x:.4f}f, {y:.4f}f, {z:.4f}f,  {s:.4f}f, {t:.4f}f,  {nx:.4f}f, {ny:.4f}f, {nz:.4f}f }}".format(**vtx.__dict__))
-    print(',\n'.join(vtx_strs))
-    print('};')
+    ostream.write(',\n'.join(vtx_strs))
+    ostream.write('\n};\n')
 
-def generate_rust():
-    print('''#[derive(Copy, Clone)]
+def generate_rust(ostream, vertices):
+    ostream.write('''#[derive(Copy, Clone)]
 pub struct Vertex {
     position: [f32; 3],
     texcoord: [f32; 2],
@@ -98,10 +86,11 @@ pub struct Vertex {
 implement_vertex!(Vertex, position, texcoord, normal);
 ''');
 
-    print("pub const VERTICES: &'static [Vertex] = &[")
+    ostream.write('\n')
+    ostream.write("pub const VERTICES: &'static [Vertex] = &[\n")
     for vtx in vertices:
-        print("    Vertex {{ position: [{x:.4f}, {y:.4f}, {z:.4f}],  texcoord: [{s:.4f}, {t:.4f}],  normal: [{nx:.4f}, {ny:.4f}, {nz:.4f}] }},".format(**vtx.__dict__))
-    print('    ];')
+        ostream.write("    Vertex {{ position: [{x:.4f}, {y:.4f}, {z:.4f}],  texcoord: [{s:.4f}, {t:.4f}],  normal: [{nx:.4f}, {ny:.4f}, {nz:.4f}] }},\n".format(**vtx.__dict__))
+    ostream.write('    ];\n')
 
 dispatch = {
     'c': generate_c,
@@ -109,7 +98,31 @@ dispatch = {
 }
 
 def main():
-    dispatch[sys.argv[1]]()
+
+    parser = argparse.ArgumentParser(description='Process some integers.')
+    parser.add_argument('--cc', dest='lang', action='store_const',
+                        const='c',
+                        help='output C code')
+    parser.add_argument('--rust', dest='lang', action='store_const',
+                        const='rust',
+                        help='output Rust code')
+    parser.add_argument('-p', '--piece', dest='pieces', action='append')
+    parser.add_argument('-o', '--output', dest='output', type=str)
+    parser.add_argument(dest='mesh', metavar='MESH', type=str,
+                        help='mesh to load')
+
+    args = parser.parse_args()
+
+    if args.lang is None:
+        parser.error("Use either --cc or --rust.")
+        sys.exit(1)
+    vertices = load_mesh(args.mesh, args.pieces)
+
+    if args.output is not None:
+        with open(args.output, 'w') as f:
+            dispatch[args.lang](f, vertices)
+    else:
+        dispatch[args.lang](sys.stdout, vertices)
 
 if __name__ == '__main__':
     main()
