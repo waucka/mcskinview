@@ -28,7 +28,7 @@ enum NextAction {
     Quit,
 }
 
-fn handle_input(turn_rate_y: &mut f32, turn_rate_x: &mut f32, state: ElementState, vk_opt: &Option<VirtualKeyCode>) -> Option<NextAction> {
+fn handle_input(turn_rate_y: &mut f32, turn_rate_x: &mut f32, do_anim: &mut bool, state: ElementState, vk_opt: &Option<VirtualKeyCode>) -> Option<NextAction> {
     let mut next_action = None;
     match *vk_opt {
         Some(vk) => match (vk, state) {
@@ -41,6 +41,8 @@ fn handle_input(turn_rate_y: &mut f32, turn_rate_x: &mut f32, state: ElementStat
             (VirtualKeyCode::Down, ElementState::Pressed)  => *turn_rate_x = -PI / 200.0,
             (VirtualKeyCode::Up, ElementState::Released) => *turn_rate_x = 0.0f32,
             (VirtualKeyCode::Down, ElementState::Released) => *turn_rate_x = 0.0f32,
+
+            (VirtualKeyCode::A, ElementState::Released) => *do_anim = !*do_anim,
 
             (VirtualKeyCode::Q, ElementState::Released) => next_action =  Some(NextAction::Quit),
             _ => ()
@@ -123,7 +125,7 @@ pub struct PlayerModel {
 }
 
 impl PlayerModel {
-    fn draw(self: &Self, target: &mut Frame, shader_prog: &Program, t: f32, angle_y: f32, angle_x: f32, do_anim: bool) {
+    fn draw(self: &Self, target: &mut Frame, shader_prog: &Program, t: f32, angle_y: f32, angle_x: f32) {
         let perspective = {
             let (width, height) = target.get_dimensions();
             let aspect_ratio = width as f32 / height as f32;
@@ -167,22 +169,22 @@ impl PlayerModel {
         self.head.draw(target, shader_prog, &uniforms, &params);
         self.torso.draw(target, shader_prog, &uniforms, &params);
 
-        let anim_matrix = self.larm.make_anim_matrix(if do_anim { -FRAC_PI_2 * t.sin() } else { 0.0 });
+        let anim_matrix = self.larm.make_anim_matrix(-FRAC_PI_2 * t.sin());
         let model = trans_final_mat * rot2 * rot1 * anim_matrix;
         uniforms.model = model;
         self.larm.draw(target, shader_prog, &uniforms, &params);
 
-        let anim_matrix = self.rarm.make_anim_matrix(if do_anim { FRAC_PI_2 * t.sin() } else { 0.0 });
+        let anim_matrix = self.rarm.make_anim_matrix(FRAC_PI_2 * t.sin());
         let model = trans_final_mat * rot2 * rot1 * anim_matrix;
         uniforms.model = model;
         self.rarm.draw(target, shader_prog, &uniforms, &params);
 
-        let anim_matrix = self.lleg.make_anim_matrix(if do_anim { FRAC_PI_2 * t.sin() } else { 0.0 });
+        let anim_matrix = self.lleg.make_anim_matrix(FRAC_PI_2 * t.sin());
         let model = trans_final_mat * rot2 * rot1 * anim_matrix;
         uniforms.model = model;
         self.lleg.draw(target, shader_prog, &uniforms, &params);
 
-        let anim_matrix = self.rleg.make_anim_matrix(if do_anim { -FRAC_PI_2 * t.sin() } else { 0.0 });
+        let anim_matrix = self.rleg.make_anim_matrix(-FRAC_PI_2 * t.sin());
         let model = trans_final_mat * rot2 * rot1 * anim_matrix;
         uniforms.model = model;
         self.rleg.draw(target, shader_prog, &uniforms, &params);
@@ -218,15 +220,19 @@ fn mainloop(display: &GlutinFacade) {
     let mut turn_rate_y = 0.0f32;
     let mut turn_rate_x = 0.0f32;
 
+    let mut do_anim = true;
+
     loop {
-        t += anim_rate;
+        if do_anim {
+            t += anim_rate;
+        }
         angle_y += turn_rate_y;
         angle_x += turn_rate_x;
 
         for ev in display.poll_events() {
             match ev {
                 Event::Closed => return,
-                Event::KeyboardInput(state, _, vk_opt) => match handle_input(&mut turn_rate_y, &mut turn_rate_x, state, &vk_opt) {
+                Event::KeyboardInput(state, _, vk_opt) => match handle_input(&mut turn_rate_y, &mut turn_rate_x, &mut do_anim, state, &vk_opt) {
                     Some(NextAction::Quit) => return,
                     None => ()
                 },
@@ -239,7 +245,7 @@ fn mainloop(display: &GlutinFacade) {
         let mut target = display.draw();
         target.clear_color_and_depth((0.0, 0.0, 1.0, 1.0), 1.0);
 
-        player.draw(&mut target, &shader_prog, t, angle_y, angle_x, true);
+        player.draw(&mut target, &shader_prog, t, angle_y, angle_x);
 
         target.finish().unwrap();
         sleep_ms(16);

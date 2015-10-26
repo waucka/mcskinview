@@ -1,7 +1,7 @@
 # mcskinview
 A Minecraft skin viewer (written in Rust)
 
-Use arrow keys to rotate.  Press Q to quit.
+Use arrow keys to rotate.  Press A to toggle animation.  Press Q to quit.
 
 Licensed under CC0, because I don't care what you do with this.  It's a toy.
 
