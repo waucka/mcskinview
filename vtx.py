@@ -147,8 +147,10 @@ def main():
                         help='output Rust code')
     parser.add_argument('--list-pieces', dest='list_pieces', action='store_true',
                         help='list pieces available in mesh')
-    parser.add_argument('-p', '--piece', dest='pieces', action='append')
-    parser.add_argument('-o', '--output', dest='output', type=str)
+    parser.add_argument('-p', '--piece', dest='pieces', action='append',
+                        help='select pieces to extract')
+    parser.add_argument('-o', '--output', dest='output', type=str,
+                        help='write output to file')
     parser.add_argument(dest='mesh', metavar='MESH', type=str,
                         help='mesh to load')
 
