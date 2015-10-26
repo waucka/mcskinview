@@ -358,7 +358,6 @@ fn main() {
         .with_depth_buffer(24)
         .with_vsync()
         .build_glium();
-    println!("If there was a message about an error just now, ignore it.  I think the driver's on crack.");
     match display_option {
         Ok(display) => mainloop(&display, skinfile, mc17),
         Err(creation_error) => match creation_error {
