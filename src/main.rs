@@ -33,7 +33,7 @@ enum NextAction {
     Quit,
 }
 
-fn handle_input(turn_rate_y: &mut f32, turn_rate_x: &mut f32, do_anim: &mut bool, state: ElementState, vk_opt: &Option<VirtualKeyCode>) -> Option<NextAction> {
+fn handle_input(turn_rate_y: &mut f32, turn_rate_x: &mut f32, do_anim: &mut bool, t: &mut f32, state: ElementState, vk_opt: &Option<VirtualKeyCode>) -> Option<NextAction> {
     let mut next_action = None;
     match *vk_opt {
         Some(vk) => match (vk, state) {
@@ -48,6 +48,7 @@ fn handle_input(turn_rate_y: &mut f32, turn_rate_x: &mut f32, do_anim: &mut bool
             (VirtualKeyCode::Down, ElementState::Released) => *turn_rate_x = 0.0f32,
 
             (VirtualKeyCode::A, ElementState::Released) => *do_anim = !*do_anim,
+            (VirtualKeyCode::R, ElementState::Released) => *t = 0.0f32,
 
             (VirtualKeyCode::Q, ElementState::Released) => next_action =  Some(NextAction::Quit),
             _ => ()
@@ -280,7 +281,7 @@ fn mainloop(display: &GlutinFacade, skinfile: Option<String>, mc17: bool) {
     let mut turn_rate_y = 0.0f32;
     let mut turn_rate_x = 0.0f32;
 
-    let mut do_anim = true;
+    let mut do_anim = false;
 
     let mut mouse_state = MouseState{
         left_pressed: false,
@@ -297,7 +298,7 @@ fn mainloop(display: &GlutinFacade, skinfile: Option<String>, mc17: bool) {
         for ev in display.poll_events() {
             match ev {
                 Event::Closed => return,
-                Event::KeyboardInput(state, _, vk_opt) => match handle_input(&mut turn_rate_y, &mut turn_rate_x, &mut do_anim, state, &vk_opt) {
+                Event::KeyboardInput(state, _, vk_opt) => match handle_input(&mut turn_rate_y, &mut turn_rate_x, &mut do_anim, &mut t, state, &vk_opt) {
                     Some(NextAction::Quit) => return,
                     None => ()
                 },
