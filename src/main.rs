@@ -21,7 +21,7 @@ use glium::draw_parameters::DepthTest;
 use glium::backend::glutin_backend::GlutinFacade;
 use glium::index::PrimitiveType;
 use glium::vertex::BufferCreationError;
-use glium::glutin::{Event, ElementState, VirtualKeyCode};
+use glium::glutin::{Event, ElementState, VirtualKeyCode, MouseButton};
 use std::f32::consts::{FRAC_PI_2, PI};
 use std::thread::sleep_ms;
 use nalgebra::{Rot3, Iso3, Vec3, Persp3, ToHomogeneous, Mat4};
@@ -55,6 +55,36 @@ fn handle_input(turn_rate_y: &mut f32, turn_rate_x: &mut f32, do_anim: &mut bool
         None => ()
     };
     next_action
+}
+
+struct MouseState {
+    left_pressed: bool,
+    position: Option<(i32, i32)>,
+}
+
+fn handle_mouse_button(button: MouseButton, state: ElementState, mouse_state: &mut MouseState) {
+    match (button, state) {
+        (MouseButton::Left, ElementState::Pressed) => mouse_state.left_pressed = true,
+        (MouseButton::Left, ElementState::Released) => {
+            mouse_state.left_pressed = false;
+            mouse_state.position = None;
+        },
+        _ => ()
+    }
+}
+
+fn handle_mouse_motion(position: (i32, i32), mouse_state: &mut MouseState, angle_y: &mut f32, angle_x: &mut f32) {
+    let (nx, ny) = position;
+    match (mouse_state.left_pressed, mouse_state.position) {
+        (true, Some((x, y))) => {
+            let (dx, dy) = (nx - x, ny - y);
+            *angle_y += dx as f32 / 100.0;
+            *angle_x -= dy as f32 / 100.0;
+            mouse_state.position = Some((nx, ny));
+        },
+        (true, None) => mouse_state.position = Some((nx, ny)),
+        _ => ()
+    }
 }
 
 pub struct ModelPiece {
@@ -251,6 +281,11 @@ fn mainloop(display: &GlutinFacade, skinfile: Option<String>, mc17: bool) {
 
     let mut do_anim = true;
 
+    let mut mouse_state = MouseState{
+        left_pressed: false,
+        position: None,
+    };
+
     loop {
         if do_anim {
             t += anim_rate;
@@ -265,6 +300,8 @@ fn mainloop(display: &GlutinFacade, skinfile: Option<String>, mc17: bool) {
                     Some(NextAction::Quit) => return,
                     None => ()
                 },
+                Event::MouseInput(state, button) => handle_mouse_button(button, state, &mut mouse_state),
+                Event::MouseMoved((x, y)) => handle_mouse_motion((x, y), &mut mouse_state, &mut angle_y, &mut angle_x),
                 _ => ()
             }
         }
@@ -303,7 +340,6 @@ fn main() {
             println!("{}", f.to_string());
             print_usage(&program, opts);
             std::process::exit(1);
-            return;
         }
     };
 
