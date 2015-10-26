@@ -3,8 +3,11 @@ extern crate glium;
 extern crate image;
 extern crate nalgebra;
 extern crate num;
+extern crate getopts;
 
+mod steve_common;
 mod steve;
+mod steve17;
 
 const VERT_PROG: &'static str = include_str!("vert.glsl");
 
@@ -23,6 +26,8 @@ use std::f32::consts::{FRAC_PI_2, PI};
 use std::thread::sleep_ms;
 use nalgebra::{Rot3, Iso3, Vec3, Persp3, ToHomogeneous, Mat4};
 use num::traits::{Zero, One};
+use getopts::Options;
+use std::env;
 
 enum NextAction {
     Quit,
@@ -53,13 +58,13 @@ fn handle_input(turn_rate_y: &mut f32, turn_rate_x: &mut f32, do_anim: &mut bool
 }
 
 pub struct ModelPiece {
-    vbo: VertexBuffer<steve::Vertex>,
+    vbo: VertexBuffer<steve_common::Vertex>,
     prim: PrimitiveType,
     bone: Option<Vec3<f32>>,
 }
 
 impl ModelPiece {
-    fn new(display: &GlutinFacade, verts: &[steve::Vertex], prim: PrimitiveType, bone: Option<Vec3<f32>>) -> Result<Self, BufferCreationError> {
+    fn new(display: &GlutinFacade, verts: &[steve_common::Vertex], prim: PrimitiveType, bone: Option<Vec3<f32>>) -> Result<Self, BufferCreationError> {
         let vertex_buffer = match VertexBuffer::new(display, verts) {
             Ok(vbo) => vbo,
             Err(e) => return Err(e),
@@ -191,23 +196,47 @@ impl PlayerModel {
     }
 }
 
-fn mainloop(display: &GlutinFacade) {
+fn mainloop(display: &GlutinFacade, skinfile: Option<String>, mc17: bool) {
     use std::io::Cursor;
+    use std::fs::File;
 
-    let image = image::load(Cursor::new(&include_bytes!("steve.png")[..]),
-                            image::PNG).unwrap();
+    let image = match skinfile {
+        Some(filename) =>
+        {
+            let image_file = File::open(filename).unwrap();
+            image::load(&image_file,
+                        image::PNG).unwrap()
+        },
+        None => image::load(Cursor::new(&include_bytes!("steve.png")[..]),
+                            image::PNG).unwrap()
+    };
 
-    let player = PlayerModel{
-        head: ModelPiece::new(display, &steve::HEAD, PrimitiveType::TrianglesList, None).unwrap(),
-        torso: ModelPiece::new(display, &steve::TORSO, PrimitiveType::TrianglesList, None).unwrap(),
+    let player = if mc17 {
+        PlayerModel{
+            head: ModelPiece::new(display, &steve17::HEAD, PrimitiveType::TrianglesList, None).unwrap(),
+            torso: ModelPiece::new(display, &steve17::TORSO, PrimitiveType::TrianglesList, None).unwrap(),
 
-        larm: ModelPiece::new(display, &steve::LARM, PrimitiveType::TrianglesList, Some(*steve::LARM_BONE)).unwrap(),
-        rarm: ModelPiece::new(display, &steve::RARM, PrimitiveType::TrianglesList, Some(*steve::RARM_BONE)).unwrap(),
+            larm: ModelPiece::new(display, &steve17::LARM, PrimitiveType::TrianglesList, Some(*steve17::LARM_BONE)).unwrap(),
+            rarm: ModelPiece::new(display, &steve17::RARM, PrimitiveType::TrianglesList, Some(*steve17::RARM_BONE)).unwrap(),
 
-        lleg: ModelPiece::new(display, &steve::LLEG, PrimitiveType::TrianglesList, Some(*steve::LLEG_BONE)).unwrap(),
-        rleg: ModelPiece::new(display, &steve::RLEG, PrimitiveType::TrianglesList, Some(*steve::RLEG_BONE)).unwrap(),
+            lleg: ModelPiece::new(display, &steve17::LLEG, PrimitiveType::TrianglesList, Some(*steve17::LLEG_BONE)).unwrap(),
+            rleg: ModelPiece::new(display, &steve17::RLEG, PrimitiveType::TrianglesList, Some(*steve17::RLEG_BONE)).unwrap(),
 
-        texture: SrgbTexture2d::new(display, image).unwrap(),
+            texture: SrgbTexture2d::new(display, image).unwrap(),
+        }
+    } else {
+        PlayerModel{
+            head: ModelPiece::new(display, &steve::HEAD, PrimitiveType::TrianglesList, None).unwrap(),
+            torso: ModelPiece::new(display, &steve::TORSO, PrimitiveType::TrianglesList, None).unwrap(),
+
+            larm: ModelPiece::new(display, &steve::LARM, PrimitiveType::TrianglesList, Some(*steve::LARM_BONE)).unwrap(),
+            rarm: ModelPiece::new(display, &steve::RARM, PrimitiveType::TrianglesList, Some(*steve::RARM_BONE)).unwrap(),
+
+            lleg: ModelPiece::new(display, &steve::LLEG, PrimitiveType::TrianglesList, Some(*steve::LLEG_BONE)).unwrap(),
+            rleg: ModelPiece::new(display, &steve::RLEG, PrimitiveType::TrianglesList, Some(*steve::RLEG_BONE)).unwrap(),
+
+            texture: SrgbTexture2d::new(display, image).unwrap(),
+        }
     };
 
     let shader_prog = Program::from_source(display, VERT_PROG, FRAG_PROG, None).unwrap();
@@ -252,9 +281,40 @@ fn mainloop(display: &GlutinFacade) {
     }
 }
 
+fn print_usage(program: &str, opts: Options) {
+    let brief = format!("Usage: {} [options]", program);
+    print!("{}", opts.usage(&brief));
+}
+
 fn main() {
     use glium::{DisplayBuild, GliumCreationError};
     use glium::glutin::{WindowBuilder, GlRequest, Api, GlProfile};
+
+    let args: Vec<String> = env::args().collect();
+    let program = args[0].clone();
+
+    let mut opts = Options::new();
+    opts.optopt("s", "skin", "set skin file", "SKINFILE");
+    opts.optflag("m", "mc17", "use Minecraft 1.7 skin layout");
+    opts.optflag("h", "help", "print help (what you're looking at right now)");
+    let matches = match opts.parse(&args[1..]) {
+        Ok(m) => m,
+        Err(f) => {
+            println!("{}", f.to_string());
+            print_usage(&program, opts);
+            std::process::exit(1);
+            return;
+        }
+    };
+
+    if matches.opt_present("h") {
+        print_usage(&program, opts);
+        return;
+    }
+
+    let mc17 = matches.opt_present("m");
+    let skinfile = matches.opt_str("s");
+
     let display_option = WindowBuilder::new()
         .with_gl(GlRequest::Specific(Api::OpenGl, (3, 3)))
         .with_gl_profile(GlProfile::Core)
@@ -263,7 +323,7 @@ fn main() {
         .build_glium();
     println!("If there was a message about an error just now, ignore it.  I think the driver's on crack.");
     match display_option {
-        Ok(display) => mainloop(&display),
+        Ok(display) => mainloop(&display, skinfile, mc17),
         Err(creation_error) => match creation_error {
             GliumCreationError::BackendCreationError(_) => println!("Oh, crap!"),
             GliumCreationError::IncompatibleOpenGl(msg) => println!("Incompatible OpenGL: {}", msg)

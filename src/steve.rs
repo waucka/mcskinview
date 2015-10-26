@@ -1,52 +1,5 @@
 extern crate nalgebra;
-#[derive(Copy, Clone)]
-pub struct Vertex {
-    position: [f32; 3],
-    texcoord: [f32; 2],
-    normal: [f32; 3],
-}
-
-implement_vertex!(Vertex, position, texcoord, normal);
-
-pub const TORSO: &'static [Vertex] = &[
-    Vertex { position: [-4.0000, 8.0000, -8.0000],  texcoord: [0.5000, 0.6875],  normal: [-1.0000, 0.0000, 0.0000] },
-    Vertex { position: [-4.0000, 8.0000, -32.0000],  texcoord: [0.5000, 0.5000],  normal: [-1.0000, 0.0000, 0.0000] },
-    Vertex { position: [-4.0000, -8.0000, -32.0000],  texcoord: [0.6250, 0.5000],  normal: [-1.0000, 0.0000, 0.0000] },
-    Vertex { position: [4.0000, 8.0000, -8.0000],  texcoord: [0.4375, 0.6875],  normal: [0.0000, 1.0000, 0.0000] },
-    Vertex { position: [4.0000, 8.0000, -32.0000],  texcoord: [0.4375, 0.5000],  normal: [0.0000, 1.0000, 0.0000] },
-    Vertex { position: [-4.0000, 8.0000, -32.0000],  texcoord: [0.5000, 0.5000],  normal: [0.0000, 1.0000, 0.0000] },
-    Vertex { position: [4.0000, -8.0000, -8.0000],  texcoord: [0.3125, 0.6875],  normal: [1.0000, 0.0000, 0.0000] },
-    Vertex { position: [4.0000, -8.0000, -32.0000],  texcoord: [0.3125, 0.5000],  normal: [1.0000, 0.0000, 0.0000] },
-    Vertex { position: [4.0000, 8.0000, -32.0000],  texcoord: [0.4375, 0.5000],  normal: [1.0000, 0.0000, 0.0000] },
-    Vertex { position: [-4.0000, -8.0000, -8.0000],  texcoord: [0.2500, 0.6875],  normal: [0.0000, -1.0000, 0.0000] },
-    Vertex { position: [-4.0000, -8.0000, -32.0000],  texcoord: [0.2500, 0.5000],  normal: [0.0000, -1.0000, 0.0000] },
-    Vertex { position: [4.0000, -8.0000, -32.0000],  texcoord: [0.3125, 0.5000],  normal: [0.0000, -1.0000, 0.0000] },
-    Vertex { position: [-4.0000, 8.0000, -32.0000],  texcoord: [0.5625, 0.7500],  normal: [0.0000, 0.0000, -1.0000] },
-    Vertex { position: [4.0000, 8.0000, -32.0000],  texcoord: [0.4375, 0.7500],  normal: [0.0000, 0.0000, -1.0000] },
-    Vertex { position: [4.0000, -8.0000, -32.0000],  texcoord: [0.4375, 0.6875],  normal: [0.0000, 0.0000, -1.0000] },
-    Vertex { position: [4.0000, 8.0000, -8.0000],  texcoord: [0.4375, 0.6875],  normal: [0.0000, 0.0000, 1.0000] },
-    Vertex { position: [-4.0000, 8.0000, -8.0000],  texcoord: [0.4375, 0.7500],  normal: [0.0000, 0.0000, 1.0000] },
-    Vertex { position: [-4.0000, -8.0000, -8.0000],  texcoord: [0.3125, 0.7500],  normal: [0.0000, 0.0000, 1.0000] },
-    Vertex { position: [-4.0000, -8.0000, -8.0000],  texcoord: [0.6250, 0.6875],  normal: [-1.0000, 0.0000, 0.0000] },
-    Vertex { position: [-4.0000, 8.0000, -8.0000],  texcoord: [0.5000, 0.6875],  normal: [-1.0000, 0.0000, 0.0000] },
-    Vertex { position: [-4.0000, -8.0000, -32.0000],  texcoord: [0.6250, 0.5000],  normal: [-1.0000, 0.0000, 0.0000] },
-    Vertex { position: [-4.0000, 8.0000, -8.0000],  texcoord: [0.5000, 0.6875],  normal: [0.0000, 1.0000, 0.0000] },
-    Vertex { position: [4.0000, 8.0000, -8.0000],  texcoord: [0.4375, 0.6875],  normal: [0.0000, 1.0000, 0.0000] },
-    Vertex { position: [-4.0000, 8.0000, -32.0000],  texcoord: [0.5000, 0.5000],  normal: [0.0000, 1.0000, 0.0000] },
-    Vertex { position: [4.0000, 8.0000, -8.0000],  texcoord: [0.4375, 0.6875],  normal: [1.0000, 0.0000, 0.0000] },
-    Vertex { position: [4.0000, -8.0000, -8.0000],  texcoord: [0.3125, 0.6875],  normal: [1.0000, 0.0000, 0.0000] },
-    Vertex { position: [4.0000, 8.0000, -32.0000],  texcoord: [0.4375, 0.5000],  normal: [1.0000, 0.0000, 0.0000] },
-    Vertex { position: [4.0000, -8.0000, -8.0000],  texcoord: [0.3125, 0.6875],  normal: [0.0000, -1.0000, 0.0000] },
-    Vertex { position: [-4.0000, -8.0000, -8.0000],  texcoord: [0.2500, 0.6875],  normal: [0.0000, -1.0000, 0.0000] },
-    Vertex { position: [4.0000, -8.0000, -32.0000],  texcoord: [0.3125, 0.5000],  normal: [0.0000, -1.0000, 0.0000] },
-    Vertex { position: [-4.0000, -8.0000, -32.0000],  texcoord: [0.5625, 0.6875],  normal: [0.0000, 0.0000, -1.0000] },
-    Vertex { position: [-4.0000, 8.0000, -32.0000],  texcoord: [0.5625, 0.7500],  normal: [0.0000, 0.0000, -1.0000] },
-    Vertex { position: [4.0000, -8.0000, -32.0000],  texcoord: [0.4375, 0.6875],  normal: [0.0000, 0.0000, -1.0000] },
-    Vertex { position: [4.0000, -8.0000, -8.0000],  texcoord: [0.3125, 0.6875],  normal: [0.0000, 0.0000, 1.0000] },
-    Vertex { position: [4.0000, 8.0000, -8.0000],  texcoord: [0.4375, 0.6875],  normal: [0.0000, 0.0000, 1.0000] },
-    Vertex { position: [-4.0000, -8.0000, -8.0000],  texcoord: [0.3125, 0.7500],  normal: [0.0000, 0.0000, 1.0000] },
-    ];
-
+use steve_common::Vertex;
 pub const HEAD: &'static [Vertex] = &[
     Vertex { position: [8.0000, 8.0000, -8.0000],  texcoord: [0.3750, 0.8750],  normal: [0.0000, 0.0000, -1.0000] },
     Vertex { position: [8.0000, -8.0000, -8.0000],  texcoord: [0.2500, 0.8750],  normal: [0.0000, 0.0000, -1.0000] },
@@ -125,6 +78,45 @@ pub const LARM: &'static [Vertex] = &[
     Vertex { position: [-4.0000, 8.0000, -8.0000],  texcoord: [0.5625, 0.2500],  normal: [0.0000, 0.0000, 1.0000] },
     ];
 
+pub const LLEG: &'static [Vertex] = &[
+    Vertex { position: [-4.0000, 8.0000, -32.0000],  texcoord: [0.4375, 0.1875],  normal: [-1.0000, 0.0000, 0.0000] },
+    Vertex { position: [-4.0000, 8.0000, -56.0000],  texcoord: [0.4375, 0.0000],  normal: [-1.0000, 0.0000, 0.0000] },
+    Vertex { position: [-4.0000, 0.0000, -56.0000],  texcoord: [0.5000, 0.0000],  normal: [-1.0000, 0.0000, 0.0000] },
+    Vertex { position: [4.0000, 8.0000, -32.0000],  texcoord: [0.3750, 0.1875],  normal: [0.0000, 1.0000, 0.0000] },
+    Vertex { position: [4.0000, 8.0000, -56.0000],  texcoord: [0.3750, 0.0000],  normal: [0.0000, 1.0000, 0.0000] },
+    Vertex { position: [-4.0000, 8.0000, -56.0000],  texcoord: [0.4375, 0.0000],  normal: [0.0000, 1.0000, 0.0000] },
+    Vertex { position: [4.0000, 0.0000, -32.0000],  texcoord: [0.3125, 0.1875],  normal: [1.0000, 0.0000, 0.0000] },
+    Vertex { position: [4.0000, 0.0000, -56.0000],  texcoord: [0.3125, 0.0000],  normal: [1.0000, 0.0000, 0.0000] },
+    Vertex { position: [4.0000, 8.0000, -56.0000],  texcoord: [0.3750, 0.0000],  normal: [1.0000, 0.0000, 0.0000] },
+    Vertex { position: [-4.0000, 0.0000, -32.0000],  texcoord: [0.2500, 0.1875],  normal: [0.0000, -1.0000, 0.0000] },
+    Vertex { position: [-4.0000, 0.0000, -56.0000],  texcoord: [0.2500, 0.0000],  normal: [0.0000, -1.0000, 0.0000] },
+    Vertex { position: [4.0000, 0.0000, -56.0000],  texcoord: [0.3125, 0.0000],  normal: [0.0000, -1.0000, 0.0000] },
+    Vertex { position: [-4.0000, 8.0000, -56.0000],  texcoord: [0.3750, 0.2500],  normal: [0.0000, 0.0000, -1.0000] },
+    Vertex { position: [4.0000, 8.0000, -56.0000],  texcoord: [0.3750, 0.1875],  normal: [0.0000, 0.0000, -1.0000] },
+    Vertex { position: [4.0000, 0.0000, -56.0000],  texcoord: [0.4375, 0.1875],  normal: [0.0000, 0.0000, -1.0000] },
+    Vertex { position: [4.0000, 8.0000, -32.0000],  texcoord: [0.3750, 0.1875],  normal: [0.0000, 0.0000, 1.0000] },
+    Vertex { position: [-4.0000, 8.0000, -32.0000],  texcoord: [0.3750, 0.2500],  normal: [0.0000, 0.0000, 1.0000] },
+    Vertex { position: [-4.0000, 0.0000, -32.0000],  texcoord: [0.3125, 0.2500],  normal: [0.0000, 0.0000, 1.0000] },
+    Vertex { position: [-4.0000, 0.0000, -32.0000],  texcoord: [0.5000, 0.1875],  normal: [-1.0000, 0.0000, 0.0000] },
+    Vertex { position: [-4.0000, 8.0000, -32.0000],  texcoord: [0.4375, 0.1875],  normal: [-1.0000, 0.0000, 0.0000] },
+    Vertex { position: [-4.0000, 0.0000, -56.0000],  texcoord: [0.5000, 0.0000],  normal: [-1.0000, 0.0000, 0.0000] },
+    Vertex { position: [-4.0000, 8.0000, -32.0000],  texcoord: [0.4375, 0.1875],  normal: [0.0000, 1.0000, 0.0000] },
+    Vertex { position: [4.0000, 8.0000, -32.0000],  texcoord: [0.3750, 0.1875],  normal: [0.0000, 1.0000, 0.0000] },
+    Vertex { position: [-4.0000, 8.0000, -56.0000],  texcoord: [0.4375, 0.0000],  normal: [0.0000, 1.0000, 0.0000] },
+    Vertex { position: [4.0000, 8.0000, -32.0000],  texcoord: [0.3750, 0.1875],  normal: [1.0000, 0.0000, 0.0000] },
+    Vertex { position: [4.0000, 0.0000, -32.0000],  texcoord: [0.3125, 0.1875],  normal: [1.0000, 0.0000, 0.0000] },
+    Vertex { position: [4.0000, 8.0000, -56.0000],  texcoord: [0.3750, 0.0000],  normal: [1.0000, 0.0000, 0.0000] },
+    Vertex { position: [4.0000, 0.0000, -32.0000],  texcoord: [0.3125, 0.1875],  normal: [0.0000, -1.0000, 0.0000] },
+    Vertex { position: [-4.0000, 0.0000, -32.0000],  texcoord: [0.2500, 0.1875],  normal: [0.0000, -1.0000, 0.0000] },
+    Vertex { position: [4.0000, 0.0000, -56.0000],  texcoord: [0.3125, 0.0000],  normal: [0.0000, -1.0000, 0.0000] },
+    Vertex { position: [-4.0000, 0.0000, -56.0000],  texcoord: [0.4375, 0.2500],  normal: [0.0000, 0.0000, -1.0000] },
+    Vertex { position: [-4.0000, 8.0000, -56.0000],  texcoord: [0.3750, 0.2500],  normal: [0.0000, 0.0000, -1.0000] },
+    Vertex { position: [4.0000, 0.0000, -56.0000],  texcoord: [0.4375, 0.1875],  normal: [0.0000, 0.0000, -1.0000] },
+    Vertex { position: [4.0000, 0.0000, -32.0000],  texcoord: [0.3125, 0.1875],  normal: [0.0000, 0.0000, 1.0000] },
+    Vertex { position: [4.0000, 8.0000, -32.0000],  texcoord: [0.3750, 0.1875],  normal: [0.0000, 0.0000, 1.0000] },
+    Vertex { position: [-4.0000, 0.0000, -32.0000],  texcoord: [0.3125, 0.2500],  normal: [0.0000, 0.0000, 1.0000] },
+    ];
+
 pub const RARM: &'static [Vertex] = &[
     Vertex { position: [-4.0000, -8.0000, -8.0000],  texcoord: [0.8125, 0.6875],  normal: [-1.0000, 0.0000, 0.0000] },
     Vertex { position: [-4.0000, -8.0000, -32.0000],  texcoord: [0.8125, 0.5000],  normal: [-1.0000, 0.0000, 0.0000] },
@@ -164,43 +156,43 @@ pub const RARM: &'static [Vertex] = &[
     Vertex { position: [-4.0000, -16.0000, -8.0000],  texcoord: [0.6875, 0.7500],  normal: [0.0000, 0.0000, 1.0000] },
     ];
 
-pub const LLEG: &'static [Vertex] = &[
-    Vertex { position: [-4.0000, 8.0000, -32.0000],  texcoord: [0.4375, 0.1875],  normal: [-1.0000, 0.0000, 0.0000] },
-    Vertex { position: [-4.0000, 8.0000, -56.0000],  texcoord: [0.4375, 0.0000],  normal: [-1.0000, 0.0000, 0.0000] },
-    Vertex { position: [-4.0000, 0.0000, -56.0000],  texcoord: [0.5000, 0.0000],  normal: [-1.0000, 0.0000, 0.0000] },
-    Vertex { position: [4.0000, 8.0000, -32.0000],  texcoord: [0.3750, 0.1875],  normal: [0.0000, 1.0000, 0.0000] },
-    Vertex { position: [4.0000, 8.0000, -56.0000],  texcoord: [0.3750, 0.0000],  normal: [0.0000, 1.0000, 0.0000] },
-    Vertex { position: [-4.0000, 8.0000, -56.0000],  texcoord: [0.4375, 0.0000],  normal: [0.0000, 1.0000, 0.0000] },
-    Vertex { position: [4.0000, 0.0000, -32.0000],  texcoord: [0.3125, 0.1875],  normal: [1.0000, 0.0000, 0.0000] },
-    Vertex { position: [4.0000, 0.0000, -56.0000],  texcoord: [0.3125, 0.0000],  normal: [1.0000, 0.0000, 0.0000] },
-    Vertex { position: [4.0000, 8.0000, -56.0000],  texcoord: [0.3750, 0.0000],  normal: [1.0000, 0.0000, 0.0000] },
-    Vertex { position: [-4.0000, 0.0000, -32.0000],  texcoord: [0.2500, 0.1875],  normal: [0.0000, -1.0000, 0.0000] },
-    Vertex { position: [-4.0000, 0.0000, -56.0000],  texcoord: [0.2500, 0.0000],  normal: [0.0000, -1.0000, 0.0000] },
-    Vertex { position: [4.0000, 0.0000, -56.0000],  texcoord: [0.3125, 0.0000],  normal: [0.0000, -1.0000, 0.0000] },
-    Vertex { position: [-4.0000, 8.0000, -56.0000],  texcoord: [0.3750, 0.2500],  normal: [0.0000, 0.0000, -1.0000] },
-    Vertex { position: [4.0000, 8.0000, -56.0000],  texcoord: [0.3750, 0.1875],  normal: [0.0000, 0.0000, -1.0000] },
-    Vertex { position: [4.0000, 0.0000, -56.0000],  texcoord: [0.4375, 0.1875],  normal: [0.0000, 0.0000, -1.0000] },
-    Vertex { position: [4.0000, 8.0000, -32.0000],  texcoord: [0.3750, 0.1875],  normal: [0.0000, 0.0000, 1.0000] },
-    Vertex { position: [-4.0000, 8.0000, -32.0000],  texcoord: [0.3750, 0.2500],  normal: [0.0000, 0.0000, 1.0000] },
-    Vertex { position: [-4.0000, 0.0000, -32.0000],  texcoord: [0.3125, 0.2500],  normal: [0.0000, 0.0000, 1.0000] },
-    Vertex { position: [-4.0000, 0.0000, -32.0000],  texcoord: [0.5000, 0.1875],  normal: [-1.0000, 0.0000, 0.0000] },
-    Vertex { position: [-4.0000, 8.0000, -32.0000],  texcoord: [0.4375, 0.1875],  normal: [-1.0000, 0.0000, 0.0000] },
-    Vertex { position: [-4.0000, 0.0000, -56.0000],  texcoord: [0.5000, 0.0000],  normal: [-1.0000, 0.0000, 0.0000] },
-    Vertex { position: [-4.0000, 8.0000, -32.0000],  texcoord: [0.4375, 0.1875],  normal: [0.0000, 1.0000, 0.0000] },
-    Vertex { position: [4.0000, 8.0000, -32.0000],  texcoord: [0.3750, 0.1875],  normal: [0.0000, 1.0000, 0.0000] },
-    Vertex { position: [-4.0000, 8.0000, -56.0000],  texcoord: [0.4375, 0.0000],  normal: [0.0000, 1.0000, 0.0000] },
-    Vertex { position: [4.0000, 8.0000, -32.0000],  texcoord: [0.3750, 0.1875],  normal: [1.0000, 0.0000, 0.0000] },
-    Vertex { position: [4.0000, 0.0000, -32.0000],  texcoord: [0.3125, 0.1875],  normal: [1.0000, 0.0000, 0.0000] },
-    Vertex { position: [4.0000, 8.0000, -56.0000],  texcoord: [0.3750, 0.0000],  normal: [1.0000, 0.0000, 0.0000] },
-    Vertex { position: [4.0000, 0.0000, -32.0000],  texcoord: [0.3125, 0.1875],  normal: [0.0000, -1.0000, 0.0000] },
-    Vertex { position: [-4.0000, 0.0000, -32.0000],  texcoord: [0.2500, 0.1875],  normal: [0.0000, -1.0000, 0.0000] },
-    Vertex { position: [4.0000, 0.0000, -56.0000],  texcoord: [0.3125, 0.0000],  normal: [0.0000, -1.0000, 0.0000] },
-    Vertex { position: [-4.0000, 0.0000, -56.0000],  texcoord: [0.4375, 0.2500],  normal: [0.0000, 0.0000, -1.0000] },
-    Vertex { position: [-4.0000, 8.0000, -56.0000],  texcoord: [0.3750, 0.2500],  normal: [0.0000, 0.0000, -1.0000] },
-    Vertex { position: [4.0000, 0.0000, -56.0000],  texcoord: [0.4375, 0.1875],  normal: [0.0000, 0.0000, -1.0000] },
-    Vertex { position: [4.0000, 0.0000, -32.0000],  texcoord: [0.3125, 0.1875],  normal: [0.0000, 0.0000, 1.0000] },
-    Vertex { position: [4.0000, 8.0000, -32.0000],  texcoord: [0.3750, 0.1875],  normal: [0.0000, 0.0000, 1.0000] },
-    Vertex { position: [-4.0000, 0.0000, -32.0000],  texcoord: [0.3125, 0.2500],  normal: [0.0000, 0.0000, 1.0000] },
+pub const TORSO: &'static [Vertex] = &[
+    Vertex { position: [-4.0000, 8.0000, -8.0000],  texcoord: [0.5000, 0.6875],  normal: [-1.0000, 0.0000, 0.0000] },
+    Vertex { position: [-4.0000, 8.0000, -32.0000],  texcoord: [0.5000, 0.5000],  normal: [-1.0000, 0.0000, 0.0000] },
+    Vertex { position: [-4.0000, -8.0000, -32.0000],  texcoord: [0.6250, 0.5000],  normal: [-1.0000, 0.0000, 0.0000] },
+    Vertex { position: [4.0000, 8.0000, -8.0000],  texcoord: [0.4375, 0.6875],  normal: [0.0000, 1.0000, 0.0000] },
+    Vertex { position: [4.0000, 8.0000, -32.0000],  texcoord: [0.4375, 0.5000],  normal: [0.0000, 1.0000, 0.0000] },
+    Vertex { position: [-4.0000, 8.0000, -32.0000],  texcoord: [0.5000, 0.5000],  normal: [0.0000, 1.0000, 0.0000] },
+    Vertex { position: [4.0000, -8.0000, -8.0000],  texcoord: [0.3125, 0.6875],  normal: [1.0000, 0.0000, 0.0000] },
+    Vertex { position: [4.0000, -8.0000, -32.0000],  texcoord: [0.3125, 0.5000],  normal: [1.0000, 0.0000, 0.0000] },
+    Vertex { position: [4.0000, 8.0000, -32.0000],  texcoord: [0.4375, 0.5000],  normal: [1.0000, 0.0000, 0.0000] },
+    Vertex { position: [-4.0000, -8.0000, -8.0000],  texcoord: [0.2500, 0.6875],  normal: [0.0000, -1.0000, 0.0000] },
+    Vertex { position: [-4.0000, -8.0000, -32.0000],  texcoord: [0.2500, 0.5000],  normal: [0.0000, -1.0000, 0.0000] },
+    Vertex { position: [4.0000, -8.0000, -32.0000],  texcoord: [0.3125, 0.5000],  normal: [0.0000, -1.0000, 0.0000] },
+    Vertex { position: [-4.0000, 8.0000, -32.0000],  texcoord: [0.5625, 0.7500],  normal: [0.0000, 0.0000, -1.0000] },
+    Vertex { position: [4.0000, 8.0000, -32.0000],  texcoord: [0.4375, 0.7500],  normal: [0.0000, 0.0000, -1.0000] },
+    Vertex { position: [4.0000, -8.0000, -32.0000],  texcoord: [0.4375, 0.6875],  normal: [0.0000, 0.0000, -1.0000] },
+    Vertex { position: [4.0000, 8.0000, -8.0000],  texcoord: [0.4375, 0.6875],  normal: [0.0000, 0.0000, 1.0000] },
+    Vertex { position: [-4.0000, 8.0000, -8.0000],  texcoord: [0.4375, 0.7500],  normal: [0.0000, 0.0000, 1.0000] },
+    Vertex { position: [-4.0000, -8.0000, -8.0000],  texcoord: [0.3125, 0.7500],  normal: [0.0000, 0.0000, 1.0000] },
+    Vertex { position: [-4.0000, -8.0000, -8.0000],  texcoord: [0.6250, 0.6875],  normal: [-1.0000, 0.0000, 0.0000] },
+    Vertex { position: [-4.0000, 8.0000, -8.0000],  texcoord: [0.5000, 0.6875],  normal: [-1.0000, 0.0000, 0.0000] },
+    Vertex { position: [-4.0000, -8.0000, -32.0000],  texcoord: [0.6250, 0.5000],  normal: [-1.0000, 0.0000, 0.0000] },
+    Vertex { position: [-4.0000, 8.0000, -8.0000],  texcoord: [0.5000, 0.6875],  normal: [0.0000, 1.0000, 0.0000] },
+    Vertex { position: [4.0000, 8.0000, -8.0000],  texcoord: [0.4375, 0.6875],  normal: [0.0000, 1.0000, 0.0000] },
+    Vertex { position: [-4.0000, 8.0000, -32.0000],  texcoord: [0.5000, 0.5000],  normal: [0.0000, 1.0000, 0.0000] },
+    Vertex { position: [4.0000, 8.0000, -8.0000],  texcoord: [0.4375, 0.6875],  normal: [1.0000, 0.0000, 0.0000] },
+    Vertex { position: [4.0000, -8.0000, -8.0000],  texcoord: [0.3125, 0.6875],  normal: [1.0000, 0.0000, 0.0000] },
+    Vertex { position: [4.0000, 8.0000, -32.0000],  texcoord: [0.4375, 0.5000],  normal: [1.0000, 0.0000, 0.0000] },
+    Vertex { position: [4.0000, -8.0000, -8.0000],  texcoord: [0.3125, 0.6875],  normal: [0.0000, -1.0000, 0.0000] },
+    Vertex { position: [-4.0000, -8.0000, -8.0000],  texcoord: [0.2500, 0.6875],  normal: [0.0000, -1.0000, 0.0000] },
+    Vertex { position: [4.0000, -8.0000, -32.0000],  texcoord: [0.3125, 0.5000],  normal: [0.0000, -1.0000, 0.0000] },
+    Vertex { position: [-4.0000, -8.0000, -32.0000],  texcoord: [0.5625, 0.6875],  normal: [0.0000, 0.0000, -1.0000] },
+    Vertex { position: [-4.0000, 8.0000, -32.0000],  texcoord: [0.5625, 0.7500],  normal: [0.0000, 0.0000, -1.0000] },
+    Vertex { position: [4.0000, -8.0000, -32.0000],  texcoord: [0.4375, 0.6875],  normal: [0.0000, 0.0000, -1.0000] },
+    Vertex { position: [4.0000, -8.0000, -8.0000],  texcoord: [0.3125, 0.6875],  normal: [0.0000, 0.0000, 1.0000] },
+    Vertex { position: [4.0000, 8.0000, -8.0000],  texcoord: [0.4375, 0.6875],  normal: [0.0000, 0.0000, 1.0000] },
+    Vertex { position: [-4.0000, -8.0000, -8.0000],  texcoord: [0.3125, 0.7500],  normal: [0.0000, 0.0000, 1.0000] },
     ];
 
 pub const RLEG: &'static [Vertex] = &[
@@ -242,10 +234,10 @@ pub const RLEG: &'static [Vertex] = &[
     Vertex { position: [-4.0000, -8.0000, -32.0000],  texcoord: [0.0625, 0.7500],  normal: [0.0000, 0.0000, 1.0000] },
     ];
 
-pub const LARM_BONE: &'static nalgebra::Vec3<f32> = &nalgebra::Vec3{ x: 0.0000, y: 8.0000, z: -8.0000 };
-
-pub const RLEG_BONE: &'static nalgebra::Vec3<f32> = &nalgebra::Vec3{ x: 0.0000, y: -4.0000, z: -32.0000 };
+pub const LLEG_BONE: &'static nalgebra::Vec3<f32> = &nalgebra::Vec3{ x: 0.0000, y: 4.0000, z: -32.0000 };
 
 pub const RARM_BONE: &'static nalgebra::Vec3<f32> = &nalgebra::Vec3{ x: 0.0000, y: -8.0000, z: -8.0000 };
 
-pub const LLEG_BONE: &'static nalgebra::Vec3<f32> = &nalgebra::Vec3{ x: 0.0000, y: 4.0000, z: -32.0000 };
+pub const LARM_BONE: &'static nalgebra::Vec3<f32> = &nalgebra::Vec3{ x: 0.0000, y: 8.0000, z: -8.0000 };
+
+pub const RLEG_BONE: &'static nalgebra::Vec3<f32> = &nalgebra::Vec3{ x: 0.0000, y: -4.0000, z: -32.0000 };

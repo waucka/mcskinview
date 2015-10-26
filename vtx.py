@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import os.path as path
 import sys
 import decimal
 import argparse
@@ -25,7 +26,7 @@ class Vertex(object):
         self.ny = clamp(ny)
         self.nz = clamp(nz)
 
-def load_mesh(mesh_filename, pieces):
+def load_mesh(mesh_filename):
     vertices = {}
     joints = {}
 
@@ -35,13 +36,12 @@ def load_mesh(mesh_filename, pieces):
     for node in mesh.scenes[0].nodes:
         if type(node.children[0]) is not GeometryNode:
             continue
-        #import ipdb; ipdb.set_trace()
-        if pieces is None or node.id in pieces:
-            nodes_dict[node.children[0].geometry.id] = node.id
+        nodes_dict[node.children[0].geometry.id] = node.id
 
     for geom in mesh.scenes[0].objects('geometry'):
+        # This check is probably redundant now, but I want to
+        # avoid pulling in extraneous stuff.
         if geom.original.id in nodes_dict:
-            #print(geom.original.id)
             prims = list(geom.primitives())
             assert(len(prims) == 1)
             assert(len(prims[0].vertex_index) == len(prims[0].normal_index))
@@ -61,54 +61,20 @@ def load_mesh(mesh_filename, pieces):
                                mat[2][3]]
     return vertices, joints
 
-def generate_c(ostream, all_vertices, joints):
-    ostream.write('''typedef struct {
-  GLfloat x;
-  GLfloat y;
-  GLfloat z;
-
-  GLfloat s;
-  GLfloat t;
-
-  GLfloat nx;
-  GLfloat ny;
-  GLfloat nz;
-} vertex_data_t;
-
-typedef struct {
-  GLfloat x;
-  GLfloat y;
-  GLfloat z;
-} joint_position_t;
-''')
-    for piece_name, vertices in all_vertices.items():
-        ostream.write('\n')
-        ostream.write("vertex_data_t[] {0} = {\n".format(piece_name))
-        vtx_strs = []
-        for vtx in vertices:
-            vtx_strs.append("  {{ {x:.4f}f, {y:.4f}f, {z:.4f}f,  {s:.4f}f, {t:.4f}f,  {nx:.4f}f, {ny:.4f}f, {nz:.4f}f }}".format(**vtx.__dict__))
-        ostream.write(',\n'.join(vtx_strs))
-        ostream.write('\n};\n')
-
-    for joint_name, joint in joints.items():
-        ostream.write('\n')
-        ostream.write("joint_position_t {joint_name} = {{ {x:.4f}f, {y:.4f}f, {z:.4f}f }};\n".format(joint_name=joint_name,
-                                                                                                     x=joint[0],
-                                                                                                     y=joint[1],
-                                                                                                     z=joint[2]))
-
-def generate_rust(ostream, all_vertices, joints):
-    ostream.write('''extern crate nalgebra;
+rust_common = '''
+extern crate nalgebra;
 #[derive(Copy, Clone)]
 pub struct Vertex {
-    position: [f32; 3],
-    texcoord: [f32; 2],
-    normal: [f32; 3],
+    pub position: [f32; 3],
+    pub texcoord: [f32; 2],
+    pub normal: [f32; 3],
 }
 
 implement_vertex!(Vertex, position, texcoord, normal);
-''');
+'''
 
+def generate_rust(ostream, common_mod, all_vertices, joints):
+    ostream.write("extern crate nalgebra;\nuse {0}::Vertex;".format(common_mod))
     for piece_name, vertices in all_vertices.items():
         ostream.write('\n')
         ostream.write("pub const {0}: &'static [Vertex] = &[\n".format(piece_name.upper()))
@@ -123,11 +89,6 @@ implement_vertex!(Vertex, position, texcoord, normal);
                                                                                                                                                  y=joint[1],
                                                                                                                                                  z=joint[2]))
 
-dispatch = {
-    'c': generate_c,
-    'rust': generate_rust,
-}
-
 def list_pieces(mesh_filename):
     mesh = Collada(mesh_filename)
     import ipdb; ipdb.set_trace()
@@ -138,37 +99,35 @@ def list_pieces(mesh_filename):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Process some integers.')
-    parser.add_argument('--cc', dest='lang', action='store_const',
-                        const='c',
-                        help='output C code')
-    parser.add_argument('--rust', dest='lang', action='store_const',
-                        const='rust',
-                        help='output Rust code')
+    parser = argparse.ArgumentParser(description='Extract vertices from a Collada file and convert them to Rust code')
     parser.add_argument('--list-pieces', dest='list_pieces', action='store_true',
                         help='list pieces available in mesh')
-    parser.add_argument('-p', '--piece', dest='pieces', action='append',
-                        help='select pieces to extract')
-    parser.add_argument('-o', '--output', dest='output', type=str,
-                        help='write output to file')
-    parser.add_argument(dest='mesh', metavar='MESH', type=str,
-                        help='mesh to load')
+    parser.add_argument('-m', '--mesh', dest='meshes', metavar='MESH:OUTPUT', action='append',
+                        help='specify input and output files (input:output)')
+    parser.add_argument('-c', '--common', dest='common', type=str,
+                        help='write common definitions to file')
 
     args = parser.parse_args()
 
-    if args.lang is None:
-        if args.list_pieces:
-            list_pieces(args.mesh)
-            sys.exit(0)
-        parser.error("Use either --cc or --rust.")
-        sys.exit(1)
-    vertices, joints = load_mesh(args.mesh, args.pieces)
+    if args.list_pieces:
+        list_pieces(args.mesh)
+        sys.exit(0)
 
-    if args.output is not None:
-        with open(args.output, 'w') as f:
-            dispatch[args.lang](f, vertices, joints)
-    else:
-        dispatch[args.lang](sys.stdout, vertices, joints)
+    if args.common is None:
+        parser.error('-c is required.')
+        sys.exit(1)
+
+    with open(args.common, 'w') as f:
+        f.write(rust_common)
+
+    common_filename, _ = path.splitext(args.common);
+    common_mod = path.basename(common_filename)
+
+    for io_pair in args.meshes:
+        parts = io_pair.split(':')
+        vertices, joints = load_mesh(parts[0])
+        with open(parts[1], 'w') as f:
+            generate_rust(f, common_mod, vertices, joints)
 
 if __name__ == '__main__':
     main()

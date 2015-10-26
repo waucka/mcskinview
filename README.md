@@ -9,5 +9,10 @@ Licensed under CC0, because I don't care what you do with this.  It's a toy.
 
 1. If you are running Python 3.5 or later, make sure you have wheel 0.25.0 or later installed.  Otherwise, numpy fails to build.  Well, kind of.  It looks like it fails, but apparently it succeeds.  LOL WUT?
 2. `pip install -r requirements.txt`
-3. `python3 vtx.py --rust -o src/steve.rs steve.dae`
+3. `./vtx.py -c src/steve_common.rs -m steve.dae:src/steve.rs -m steve_1.7.dae:src/steve17.rs`
 4. `cargo build`
+
+## Running
+
+- `cargo run -- -s some_minecraft_1.8_skin.png`
+- `cargo run -- -s some_minecraft_1.7_skin.png -m`
