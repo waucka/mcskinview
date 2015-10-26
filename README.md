@@ -16,3 +16,7 @@ Licensed under CC0, because I don't care what you do with this.  It's a toy.
 
 - `cargo run -- -s some_minecraft_1.8_skin.png`
 - `cargo run -- -s some_minecraft_1.7_skin.png -m`
+
+## Getting your skin
+
+Don't have your skin file handy?  Just run `./getskin.py YOUR_USERNAME_HERE`.
