@@ -161,6 +161,7 @@ pub struct PlayerModel {
 
 impl PlayerModel {
     fn draw(self: &Self, target: &mut Frame, shader_prog: &Program, t: f32, angle_y: f32, angle_x: f32) {
+        use nalgebra::Inv;
         let perspective = {
             let (width, height) = target.get_dimensions();
             let aspect_ratio = width as f32 / height as f32;
@@ -176,14 +177,14 @@ impl PlayerModel {
         let rot1 = Rot3::new(Vec3::new(-FRAC_PI_2, 0.0, 0.0)).to_homogeneous();
         let rot2 = Rot3::new(Vec3::new(0.0, FRAC_PI_2, 0.0)).to_homogeneous();
 
-        let trans_final = Vec3::new(0.0, 0.0, 100.0);
-        let trans_final_mat = Iso3::new(trans_final, Vec3::zero()).to_homogeneous();
-        let inv_trans_final_mat = Iso3::new(-trans_final, Vec3::zero()).to_homogeneous();
-
+        let trans_final_mat = Iso3::new(Vec3::new(0.0, 16.0, 100.0), Vec3::zero()).to_homogeneous();
         let model = trans_final_mat * rot2 * rot1;
+
+        let view_center_mat = Iso3::new(Vec3::new(0.0, 0.0, 100.0), Vec3::zero()).to_homogeneous();
+        let inv_view_center_mat = view_center_mat.inv().unwrap();
         let view_rot1 = Rot3::new(Vec3::new(0.0, angle_y, 0.0)).to_homogeneous();
         let view_rot2 = Rot3::new(Vec3::new(angle_x, 0.0, 0.0)).to_homogeneous();
-        let view = trans_final_mat * view_rot2 * view_rot1 * inv_trans_final_mat;
+        let view = view_center_mat * view_rot2 * view_rot1 * inv_view_center_mat;
 
         let mut uniforms = PlayerModelUniforms{
             model: model,
