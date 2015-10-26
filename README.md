@@ -4,6 +4,7 @@ A Minecraft skin viewer (written in Rust)
 - Use arrow keys to rotate.
 - Press A to toggle animation.
 - Press R to reset animation cycle.
+- Press F5 to reload the skin texture (useful if you delete and then recreate the file).
 - Press Q to quit.
 
 Licensed under CC0, because I don't care what you do with this.  It's a toy.
@@ -22,4 +23,5 @@ Licensed under CC0, because I don't care what you do with this.  It's a toy.
 
 ## Getting your skin
 
-Don't have your skin file handy?  Just run `./getskin.py YOUR_USERNAME_HERE`.
+Don't have your skin file handy?  Just run `./getskin.py YOUR_USERNAME_HERE`.  As an extra bonus, it might even work!
+If you want to base a skin off the default Minecraft skin, you can find it in minecraft.jar (probably in the bin/ subdirectory of your minecraft installation directory).  Just treat it as a .zip file and unpack it.

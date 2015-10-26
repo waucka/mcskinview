@@ -4,6 +4,7 @@ extern crate image;
 extern crate nalgebra;
 extern crate num;
 extern crate getopts;
+extern crate inotify;
 
 mod steve_common;
 mod steve;
@@ -27,9 +28,14 @@ use std::thread::sleep_ms;
 use nalgebra::{Rot3, Iso3, Vec3, Persp3, ToHomogeneous, Mat4};
 use num::traits::{Zero, One};
 use getopts::Options;
+use inotify::INotify;
+use inotify::wrapper::Watch;
+use inotify::ffi::*;
+use std::path::Path;
 use std::env;
 
 enum NextAction {
+    Reload,
     Quit,
 }
 
@@ -50,7 +56,8 @@ fn handle_input(turn_rate_y: &mut f32, turn_rate_x: &mut f32, do_anim: &mut bool
             (VirtualKeyCode::A, ElementState::Released) => *do_anim = !*do_anim,
             (VirtualKeyCode::R, ElementState::Released) => *t = 0.0f32,
 
-            (VirtualKeyCode::Q, ElementState::Released) => next_action =  Some(NextAction::Quit),
+            (VirtualKeyCode::F5, ElementState::Pressed) => next_action = Some(NextAction::Reload),
+            (VirtualKeyCode::Q, ElementState::Released) => next_action = Some(NextAction::Quit),
             _ => ()
         },
         None => ()
@@ -158,6 +165,7 @@ pub struct PlayerModel {
     rleg: ModelPiece,
 
     texture: SrgbTexture2d,
+    texture_watch: Option<Watch>,
 }
 
 impl PlayerModel {
@@ -228,22 +236,59 @@ impl PlayerModel {
     }
 }
 
-fn mainloop(display: &GlutinFacade, skinfile: Option<String>, mc17: bool) {
+fn load_default_skin_image() -> image::DynamicImage {
     use std::io::Cursor;
-    use std::fs::File;
-
-    let image = match skinfile {
-        Some(filename) =>
-        {
-            let image_file = File::open(filename).unwrap();
-            image::load(&image_file,
-                        image::PNG).unwrap()
-        },
-        None => image::load(Cursor::new(&include_bytes!("steve.png")[..]),
+    image::load(Cursor::new(&include_bytes!("steve.png")[..]),
                             image::PNG).unwrap()
+}
+
+fn load_skin_file(ino: &mut INotify, path: &Path) -> (image::DynamicImage, Option<Watch>) {
+    let skinfile_watch = match ino.add_watch(path, IN_MODIFY | IN_DELETE_SELF) {
+        Ok(wd) => {
+            //Yeah...I'm going to go ahead and assume that the
+            //path is valid Unicode...
+            println!("Watching {}...", path.to_str().unwrap());
+            Some(wd)
+        },
+        Err(e) => {
+            //...same here...
+            println!("Failed to watch {}!  {}", path.to_str().unwrap(), e.to_string());
+            None
+        }
+    };
+    match image::open(path) {
+        Ok(img) => (img, skinfile_watch),
+        Err(e) => {
+            //...and here.
+            println!("Failed to load file {} ({}).  Using default skin instead...", path.to_str().unwrap(), e.to_string());
+            //Include the watch, if it was created successfully.
+            //This should be interesting...
+            (load_default_skin_image(), skinfile_watch)
+        }
+    }
+}
+
+fn load_skin(display: &GlutinFacade, ino: &mut INotify, skinfile: &Option<String>, mc17: bool) -> PlayerModel {
+    use std::fs;
+
+    let (image, skinfile_watch) = match skinfile {
+        &Some(ref filename) =>
+        {
+            let path = Path::new(&filename);
+            //This should be changed to path.exists() once that
+            //API is stable.
+            match fs::metadata(&path) {
+                Ok(_) => load_skin_file(ino, &path),
+                Err(e) => {
+                    println!("No such file {} ({})", &filename, e.to_string());
+                    (load_default_skin_image(), None)
+                }
+            }
+        },
+        &None => (load_default_skin_image(), None)
     };
 
-    let player = if mc17 {
+    if mc17 {
         PlayerModel{
             head: ModelPiece::new(display, &steve17::HEAD, PrimitiveType::TrianglesList, None).unwrap(),
             torso: ModelPiece::new(display, &steve17::TORSO, PrimitiveType::TrianglesList, None).unwrap(),
@@ -255,6 +300,7 @@ fn mainloop(display: &GlutinFacade, skinfile: Option<String>, mc17: bool) {
             rleg: ModelPiece::new(display, &steve17::RLEG, PrimitiveType::TrianglesList, Some(*steve17::RLEG_BONE)).unwrap(),
 
             texture: SrgbTexture2d::new(display, image).unwrap(),
+            texture_watch: skinfile_watch,
         }
     } else {
         PlayerModel{
@@ -268,9 +314,52 @@ fn mainloop(display: &GlutinFacade, skinfile: Option<String>, mc17: bool) {
             rleg: ModelPiece::new(display, &steve::RLEG, PrimitiveType::TrianglesList, Some(*steve::RLEG_BONE)).unwrap(),
 
             texture: SrgbTexture2d::new(display, image).unwrap(),
+            texture_watch: skinfile_watch,
         }
-    };
+    }
+}
 
+enum SkinFileUpdate {
+    NoUpdate,
+    New(String),
+    Modified,
+    Deleted,
+}
+
+fn get_skin_file_update(ino: &mut INotify) -> SkinFileUpdate {
+    use SkinFileUpdate::*;
+    let events = ino.available_events().unwrap();
+    if events.len() > 1 {
+        if events.len() == 2 && events[0].is_ignored() || events[1].is_ignored() {
+            //All is well.
+        } else {
+            println!("More than 1 event ({}) on skin file!  This is highly irregular.", events.len());
+        }
+    }
+    if events.len() == 0 {
+        return NoUpdate;
+    }
+    let event = &events[0];
+    if event.is_dir() {
+        println!("Directory event?  Ignore that!");
+        return NoUpdate;
+    }
+    if event.is_modify() {
+        println!("Modification of {}", &event.name);
+        Modified
+    } else if event.is_create() {
+        New(event.name.clone())
+    } else if event.is_delete_self() {
+        Deleted
+    } else {
+        NoUpdate
+    }
+ }
+
+fn mainloop(display: &GlutinFacade, ino: &mut INotify, skinfile: Option<String>, mc17: bool) {
+    use SkinFileUpdate::*;
+
+    let mut player = load_skin(display, ino, &skinfile, mc17);
     let shader_prog = Program::from_source(display, VERT_PROG, FRAG_PROG, None).unwrap();
 
     let mut t = 0.0f32;
@@ -289,6 +378,25 @@ fn mainloop(display: &GlutinFacade, skinfile: Option<String>, mc17: bool) {
     };
 
     loop {
+        let skinfile_update = get_skin_file_update(ino);
+        match skinfile_update {
+            Modified => {
+                println!("Skin file modified.");
+                player = load_skin(display, ino, &skinfile, mc17);
+            },
+            New(path) => {
+                player = load_skin(display, ino, &Some(path), mc17);
+            },
+            Deleted => {
+                println!("Skin file deleted.");
+                //No need to remove the underlying watch object; inotify
+                //takes care of that for us.
+                player.texture_watch = None;
+                player = load_skin(display, ino, &skinfile, mc17);
+            },
+            NoUpdate => ()
+        }
+
         if do_anim {
             t += anim_rate;
         }
@@ -299,8 +407,9 @@ fn mainloop(display: &GlutinFacade, skinfile: Option<String>, mc17: bool) {
             match ev {
                 Event::Closed => return,
                 Event::KeyboardInput(state, _, vk_opt) => match handle_input(&mut turn_rate_y, &mut turn_rate_x, &mut do_anim, &mut t, state, &vk_opt) {
-                    Some(NextAction::Quit) => return,
-                    None => ()
+                        Some(NextAction::Quit) => return,
+                        Some(NextAction::Reload) => player = load_skin(display, ino, &skinfile, mc17),
+                        None => ()
                 },
                 Event::MouseInput(state, button) => handle_mouse_button(button, state, &mut mouse_state),
                 Event::MouseMoved((x, y)) => handle_mouse_motion((x, y), &mut mouse_state, &mut angle_y, &mut angle_x),
@@ -328,6 +437,8 @@ fn print_usage(program: &str, opts: Options) {
 fn main() {
     use glium::{DisplayBuild, GliumCreationError};
     use glium::glutin::{WindowBuilder, GlRequest, Api, GlProfile};
+
+    let mut ino = INotify::init().unwrap();
 
     let args: Vec<String> = env::args().collect();
     let program = args[0].clone();
@@ -360,7 +471,7 @@ fn main() {
         .with_vsync()
         .build_glium();
     match display_option {
-        Ok(display) => mainloop(&display, skinfile, mc17),
+        Ok(display) => mainloop(&display, &mut ino, skinfile, mc17),
         Err(creation_error) => match creation_error {
             GliumCreationError::BackendCreationError(_) => println!("Oh, crap!"),
             GliumCreationError::IncompatibleOpenGl(msg) => println!("Incompatible OpenGL: {}", msg)
