@@ -374,6 +374,10 @@ pub const RECTANGLE: &'static [steve_common::Vertex] = &[
 fn mainloop(display: &GlutinFacade, ino: &mut INotify, skinfile: Option<String>, mc17: bool) {
     use SkinFileUpdate::*;
 
+    match display.get_window() {
+        Some(window) => window.set_inner_size(600, 800),
+        None => ()
+    }
     let mut player = load_skin(display, ino, &skinfile, mc17);
     let shader_prog = Program::from_source(display, VERT_PROG, FRAG_PROG, None).unwrap();
     let shader_prog_simple = Program::from_source(display, VERT_PROG_SIMPLE, FRAG_PROG, None).unwrap();
