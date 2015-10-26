@@ -11,6 +11,7 @@ mod steve;
 mod steve17;
 
 const VERT_PROG: &'static str = include_str!("vert.glsl");
+const VERT_PROG_SIMPLE: &'static str = include_str!("vert_simple.glsl");
 
 const FRAG_PROG: &'static str = include_str!("frag.glsl");
 
@@ -237,10 +238,14 @@ impl PlayerModel {
     }
 }
 
+fn load_default_backdrop_image() -> image::DynamicImage {
+    use std::io::Cursor;
+    image::load(Cursor::new(&include_bytes!("backdrop1.png")[..]), image::PNG).unwrap()
+}
+
 fn load_default_skin_image() -> image::DynamicImage {
     use std::io::Cursor;
-    image::load(Cursor::new(&include_bytes!("steve.png")[..]),
-                            image::PNG).unwrap()
+    image::load(Cursor::new(&include_bytes!("steve.png")[..]), image::PNG).unwrap()
 }
 
 fn load_skin_file(ino: &mut INotify, path: &Path) -> (image::DynamicImage, Option<Watch>) {
@@ -357,11 +362,33 @@ fn get_skin_file_update(ino: &mut INotify) -> SkinFileUpdate {
     }
  }
 
+pub const RECTANGLE: &'static [steve_common::Vertex] = &[
+    steve_common::Vertex { position: [-1.0, -1.0, 0.0],  texcoord: [0.0, 0.0],  normal: [0.0, 0.0, 0.0] },
+    steve_common::Vertex { position: [-1.0, 1.0, 0.0],  texcoord: [0.0, 1.0],  normal: [0.0, 0.0, 0.0] },
+    steve_common::Vertex { position: [1.0, 1.0, 0.0],  texcoord: [1.0, 1.0],  normal: [0.0, 0.0, 0.0] },
+    steve_common::Vertex { position: [-1.0, -1.0, 0.0],  texcoord: [0.0, 0.0],  normal: [0.0, 0.0, 0.0] },
+    steve_common::Vertex { position: [1.0, 1.0, 0.0],  texcoord: [1.0, 1.0],  normal: [0.0, 0.0, 0.0] },
+    steve_common::Vertex { position: [1.0, -1.0, 0.0],  texcoord: [1.0, 0.0],  normal: [0.0, 0.0, 0.0] },
+    ];
+
 fn mainloop(display: &GlutinFacade, ino: &mut INotify, skinfile: Option<String>, mc17: bool) {
     use SkinFileUpdate::*;
 
     let mut player = load_skin(display, ino, &skinfile, mc17);
     let shader_prog = Program::from_source(display, VERT_PROG, FRAG_PROG, None).unwrap();
+    let shader_prog_simple = Program::from_source(display, VERT_PROG_SIMPLE, FRAG_PROG, None).unwrap();
+    let backdrop = ModelPiece::new(display, &RECTANGLE, PrimitiveType::TrianglesList, None).unwrap();
+    let backdrop_image = load_default_backdrop_image();
+    let backdrop_texture = SrgbTexture2d::new(display, backdrop_image).unwrap();
+    let backdrop_params = glium::DrawParameters {
+        depth: glium::Depth {
+            test: DepthTest::IfLess,
+            write: true,
+            .. Default::default()
+        },
+        .. Default::default()
+    };
+
 
     let mut t = 0.0f32;
     let mut angle_y = 0.0f32;
@@ -418,11 +445,17 @@ fn mainloop(display: &GlutinFacade, ino: &mut INotify, skinfile: Option<String>,
             }
         }
 
-        //let (width, height) = display.get_framebuffer_dimensions();
-        //println!("Framebuffer dimensions: {} x {}", width, height);
         let mut target = display.draw();
         target.clear_color_and_depth((0.0, 0.0, 1.0, 1.0), 1.0);
 
+        let (width, height) = target.get_dimensions();
+        let backdrop_uniforms = uniform!{
+            width_adjustment: width as f32 / (height * 2) as f32,
+            tex: backdrop_texture.sampled(),
+        };
+        backdrop.draw(&mut target, &shader_prog_simple, &backdrop_uniforms, &backdrop_params);
+
+        target.clear_depth(1.0);
         player.draw(&mut target, &shader_prog, t, angle_y, angle_x);
 
         target.finish().unwrap();
